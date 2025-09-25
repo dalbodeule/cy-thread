@@ -1,0 +1,36 @@
+{
+  "name": "nuxt-app",
+  "type": "module",
+  "private": true,
+  "license": "AGPL-3.0-or-later",
+  "scripts": {
+    "build": "nuxt build",
+    "dev": "nuxt dev",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare"
+  },
+  "dependencies": {
+    "@toast-ui/editor": "^3.2.2",
+    "@toast-ui/editor-plugin-code-syntax-highlight": "^3.1.0",
+    "@toast-ui/editor-plugin-color-syntax": "^3.1.0",
+    "@toast-ui/editor-plugin-table-merged-cell": "^3.1.0",
+    "nuxt": "^4.1.2",
+    "vue": "^3.5.21",
+    "vue-router": "^4.5.1"
+  },
+  "devDependencies": {
+    "@hebilicious/server-block-nuxt": "^0.3.4",
+    "@nuxt/eslint": "^1.9.0",
+    "@nuxtjs/robots": "^5.5.5",
+    "@nuxtjs/sitemap": "^7.4.7",
+    "@nuxtjs/tailwindcss": "^6.14.0",
+    "@nuxtjs/turnstile": "^1.1.0",
+    "@pinia/nuxt": "^0.11.2",
+    "@vueuse/nuxt": "^13.9.0",
+    "dayjs-nuxt": "^2.1.11",
+    "nuxt-auth-utils": "^0.5.25",
+    "nuxt-lodash": "^2.5.3",
+    "pinia-plugin-persistedstate": "^4.5.0"
+  }
+}
