@@ -1,0 +1,28 @@
+# Dependencies and build output
+node_modules/
+.nuxt/
+.nuxt-*/
+.output/
+dist/
+.gen/
+coverage/
+.kilo/
+
+# Local runtime and deployment artifacts
+.data/
+.wrangler/
+.vscode/
+.prettierrc
+.kilo/
+eslint.config.mjs
+tsconfig.json
+
+# Generated files
+package-lock.json
+worker-configuration.d.ts
+server/db/migrations/
+
+public/*
+!public/legal/
+public/legal/*
+!public/legal/*.md

@@ -1,9 +1,21 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
-  compatibilityDate: '2025-07-15',
+  compatibilityDate: '2025-09-15',
+  css: ['~/assets/css/main.css'],
   devtools: { enabled: true },
+  runtimeConfig: {
+    turnstile: { secretKey: '' },
+    public: { turnstile: { siteKey: '' } },
+    oauth: {
+      google: {
+        clientId: '',
+        clientSecret: '',
+      },
+    },
+  },
+  turnstile: { siteKey: '' },
   nitro: {
-    preset: "cloudflare_module",
+    preset: 'cloudflare_module',
   },
   modules: [
     '@pinia/nuxt',
@@ -15,6 +27,6 @@ export default defineNuxtConfig({
     '@nuxtjs/robots',
     'dayjs-nuxt',
     'nuxt-auth-utils',
-    '@nuxtjs/turnstile'
-  ]
-})
+    '@nuxtjs/turnstile',
+  ],
+});

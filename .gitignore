@@ -5,6 +5,8 @@
 .nitro
 .cache
 dist
+.wrangler
+community-backup*.sql
 
 # Node dependencies
 node_modules
@@ -157,6 +159,8 @@ web_modules/
 .env.test.local
 .env.production.local
 .env.local
+.dev.vars
+.dev.vars.*
 
 # parcel-bundler cache (https://parceljs.org/)
 .cache

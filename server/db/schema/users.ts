@@ -1,10 +1,13 @@
-import { pgTable, serial, text, boolean, timestamp } from "drizzle-orm/pg-core";
+import { sql } from 'drizzle-orm';
+import { sqliteTable, integer, text } from 'drizzle-orm/sqlite-core';
 
-export const users = pgTable("users", {
-    id: serial("id").primaryKey(),
-    email: text("email").unique(),
-    name: text("name"),
-    avatarUrl: text("avatar_url"),
-    isGlobalAdmin: boolean("is_global_admin").notNull().default(false),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow()
+export const users = sqliteTable('users', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  email: text('email').unique(),
+  name: text('name'),
+  avatarUrl: text('avatar_url'),
+  isGlobalAdmin: integer('is_global_admin', { mode: 'boolean' }).notNull().default(false),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' })
+    .notNull()
+    .default(sql`(unixepoch() * 1000)`),
 });

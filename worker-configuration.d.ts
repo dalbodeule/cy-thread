@@ -4,7 +4,7 @@
 declare namespace Cloudflare {
 	interface Env {
 		BLOB: R2Bucket;
-		HYPERDRIVE: Hyperdrive;
+		DB: D1Database;
 		ASSETS: Fetcher;
 	}
 }

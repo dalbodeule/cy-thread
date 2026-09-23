@@ -1,12 +1,40 @@
 {
   "version": "7",
-  "dialect": "postgresql",
+  "dialect": "sqlite",
   "entries": [
     {
       "idx": 0,
-      "version": "7",
-      "when": 1759377149182,
-      "tag": "0000_nifty_songbird",
+      "version": "6",
+      "when": 1790136258328,
+      "tag": "0000_init",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1790136325599,
+      "tag": "0001_query_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1790138500333,
+      "tag": "0002_loud_madrox",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1790139394236,
+      "tag": "0003_loose_komodo",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1790143383736,
+      "tag": "0004_soft_delete_threads",
       "breakpoints": true
     }
   ]
