@@ -9,19 +9,31 @@ type ThreadRow = {
   createdAt: string | null;
   lastPostAt: string | null;
   isPinned: boolean;
+  isLocked: boolean;
   replyCount: number;
 };
 type Category = { id: number; name: string; slug: string };
 const route = useRoute();
+const { loggedIn } = useUserSession();
+const {
+  public: { turnstile },
+} = useRuntimeConfig();
 const slug = computed(() => String(route.params.slug));
 const search = ref('');
 const sort = ref<'activity' | 'latest'>('activity');
+const filter = ref<'all' | 'pinned' | 'locked'>('all');
 const category = ref('');
 const rows = ref<ThreadRow[]>([]);
 const categories = ref<Category[]>([]);
 const loading = ref(false);
 const hasMore = ref(false);
 const error = ref('');
+const showComposer = ref(false);
+const draftTitle = ref('');
+const draftBody = ref('');
+const draftCategory = ref('');
+const turnstileToken = ref('');
+const creating = ref(false);
 const api = (path: string) => `/api/forums/${encodeURIComponent(slug.value)}${path}`;
 const forumPath = computed(() => `/forums/${encodeURIComponent(slug.value)}`);
 let searchTimer: ReturnType<typeof setTimeout> | undefined;
@@ -31,6 +43,8 @@ async function loadThreads(offset = 0) {
   error.value = '';
   try {
     const params: Record<string, string | number> = { sort: sort.value, limit: 30, offset };
+    if (filter.value === 'pinned') params.pinned = 1;
+    if (filter.value === 'locked') params.locked = 1;
     if (search.value.trim()) params.q = search.value.trim();
     if (category.value) params.category = category.value;
     const loaded = await $fetch<ThreadRow[]>(api('/threads'), { params });
@@ -45,8 +59,46 @@ async function loadThreads(offset = 0) {
 async function loadMore() {
   await loadThreads(rows.value.length);
 }
+async function loadCategories() {
+  try {
+    categories.value = await $fetch<Category[]>(api('/categories'));
+    if (!categories.value.some((item) => item.slug === draftCategory.value)) {
+      draftCategory.value = categories.value[0]?.slug || '';
+    }
+  } catch {
+    categories.value = [];
+  }
+}
+async function createThread() {
+  if (!loggedIn.value) return navigateTo('/login');
+  creating.value = true;
+  error.value = '';
+  try {
+    await $fetch(api('/threads'), {
+      method: 'POST',
+      body: {
+        title: draftTitle.value,
+        body: draftBody.value,
+        categorySlug: draftCategory.value || categories.value[0]?.slug,
+        turnstileToken: turnstileToken.value,
+      },
+    });
+    draftTitle.value = '';
+    draftBody.value = '';
+    turnstileToken.value = '';
+    showComposer.value = false;
+    sort.value = 'latest';
+    category.value = '';
+    filter.value = 'all';
+    await loadThreads();
+  } catch {
+    error.value = '게시글을 등록하지 못했어요. 제목과 내용을 확인해 주세요.';
+  } finally {
+    creating.value = false;
+  }
+}
 watch(
-  [slug, search, sort, category],
+  [slug, search, sort, category, filter],
   () => {
     clearTimeout(searchTimer);
     searchTimer = setTimeout(() => void loadThreads(), search.value ? 180 : 0);
@@ -54,12 +106,9 @@ watch(
   { immediate: true }
 );
 onMounted(async () => {
-  try {
-    categories.value = await $fetch<Category[]>(api('/categories'));
-  } catch {
-    /* handled by list state */
-  }
+  await loadCategories();
 });
+watch(slug, () => void loadCategories());
 onBeforeUnmount(() => clearTimeout(searchTimer));
 function time(value: string | null) {
   if (!value) return '최근';
@@ -96,8 +145,44 @@ function time(value: string | null) {
           <h1>이야기 목록</h1>
           <p>질문과 답변, 멤버들의 이야기를 찾아보세요.</p>
         </div>
-        <NuxtLink class="primary-button" to="/login">＋ 새 이야기</NuxtLink>
+        <button class="primary-button" @click="showComposer = !showComposer">＋ 새 이야기</button>
       </section>
+      <form v-if="showComposer" class="thread-create-form" @submit.prevent="createThread">
+        <label
+          >카테고리<select v-model="draftCategory" required>
+            <option v-for="item in categories" :key="item.id" :value="item.slug">
+              {{ item.name }}
+            </option>
+          </select></label
+        >
+        <label
+          >제목<input v-model="draftTitle" required maxlength="120" placeholder="이야기 제목"
+        /></label>
+        <label
+          >내용<textarea
+            v-model="draftBody"
+            required
+            maxlength="20000"
+            rows="6"
+            placeholder="커뮤니티와 나눌 이야기를 적어 주세요."
+          />
+        </label>
+        <NuxtTurnstile
+          v-if="turnstile.siteKey"
+          v-model="turnstileToken"
+          :options="{ sitekey: turnstile.siteKey }"
+        />
+        <div>
+          <button
+            class="primary-button"
+            :disabled="creating || (!!turnstile.siteKey && !turnstileToken)"
+          >
+            {{ creating ? '등록 중…' : '게시글 등록' }}</button
+          ><button type="button" class="secondary-button" @click="showComposer = false">
+            취소
+          </button>
+        </div>
+      </form>
       <section class="list-controls" aria-label="목록 필터">
         <label class="page-search"
           ><span>⌕</span
@@ -107,6 +192,11 @@ function time(value: string | null) {
           <option v-for="item in categories" :key="item.id" :value="item.slug">
             {{ item.name }}
           </option>
+        </select>
+        <select v-model="filter" aria-label="이야기 상태">
+          <option value="all">모든 이야기</option>
+          <option value="pinned">고정된 이야기</option>
+          <option value="locked">댓글 잠금</option>
         </select>
         <div class="page-tabs">
           <button :class="{ active: sort === 'activity' }" @click="sort = 'activity'">활동순</button
@@ -125,6 +215,7 @@ function time(value: string | null) {
             <div class="page-row-meta">
               <span class="thread-category tag-green">{{ row.category }}</span
               ><span v-if="row.isPinned" class="page-pinned">고정</span
+              ><span v-if="row.isLocked" class="page-pinned">댓글 잠금</span
               ><time>{{ time(row.lastPostAt || row.createdAt) }}</time>
             </div>
             <NuxtLink class="page-thread-title" :to="`${forumPath}/threads/${row.id}`">{{

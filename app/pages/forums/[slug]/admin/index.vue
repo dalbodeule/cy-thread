@@ -6,6 +6,11 @@ type Moderator = {
   role: 'owner' | 'admin' | 'mod';
 };
 type Stats = { members: number; threads: number; posts: number; categories: number };
+type Activity = {
+  activeMembers30d: number;
+  openReports: number;
+  daily: Array<{ day: string; threads: number; posts: number }>;
+};
 const route = useRoute();
 const { user, loggedIn } = useUserSession();
 const slug = computed(() => String(route.params.slug));
@@ -13,6 +18,7 @@ const forumPath = computed(() => `/forums/${encodeURIComponent(slug.value)}`);
 const api = (path: string) => `/api/forums/${encodeURIComponent(slug.value)}/moderation${path}`;
 const moderators = ref<Moderator[]>([]);
 const stats = ref<Stats>({ members: 0, threads: 0, posts: 0, categories: 0 });
+const activity = ref<Activity>({ activeMembers30d: 0, openReports: 0, daily: [] });
 const email = ref('');
 const role = ref<'admin' | 'mod'>('mod');
 const error = ref('');
@@ -26,12 +32,14 @@ const canManage = computed(() => myRole.value === 'owner' || myRole.value === 'a
 async function load() {
   loading.value = true;
   try {
-    const [team, communityStats] = await Promise.all([
+    const [team, communityStats, communityActivity] = await Promise.all([
       $fetch<Moderator[]>(api('/moderators')),
       $fetch<Stats>(`/api/forums/${encodeURIComponent(slug.value)}/stats`),
+      $fetch<Activity>(api('/stats')),
     ]);
     moderators.value = team;
     stats.value = communityStats;
+    activity.value = communityActivity;
     error.value = '';
   } catch {
     error.value = loggedIn.value
@@ -121,8 +129,53 @@ onMounted(load);
             ><span>⚑</span><strong>신고함</strong><small>접수된 신고 검토</small></NuxtLink
           ><NuxtLink :to="`${forumPath}/admin/categories`"
             ><span>◈</span><strong>카테고리</strong><small>이야기 주제 관리</small></NuxtLink
+          ><NuxtLink :to="`${forumPath}/admin/users`"
+            ><span>♙</span><strong>사용자</strong><small>검색·차단 관리</small></NuxtLink
           >
         </nav>
+        <section class="admin-panel activity-panel">
+          <div class="admin-section-title">
+            <div>
+              <p class="section-kicker">LAST 30 DAYS</p>
+              <h2>커뮤니티 활동</h2>
+            </div>
+            <NuxtLink :to="`${forumPath}/reports`"
+              >열린 신고 {{ activity.openReports }}건 →</NuxtLink
+            >
+          </div>
+          <div class="activity-summary">
+            <strong>{{ activity.activeMembers30d.toLocaleString('ko-KR') }}</strong
+            ><span>최근 30일 활동 멤버</span>
+          </div>
+          <div
+            v-if="activity.daily.length"
+            class="activity-bars"
+            role="img"
+            aria-label="최근 30일 일별 게시글과 스레드 수"
+          >
+            <div
+              v-for="day in activity.daily"
+              :key="day.day"
+              class="activity-day"
+              :title="`${day.day}: 이야기 ${day.threads}개, 게시글 ${day.posts}개`"
+            >
+              <span
+                class="activity-thread-bar"
+                :style="{
+                  height: `${day.threads ? Math.max(4, Math.min(100, day.threads * 12)) : 0}%`,
+                }"
+              />
+              <span
+                class="activity-post-bar"
+                :style="{ height: `${day.posts ? Math.max(4, Math.min(100, day.posts * 5)) : 0}%` }"
+              />
+            </div>
+          </div>
+          <small class="activity-legend"
+            ><i class="activity-thread-dot" /> 이야기
+            <i class="activity-post-dot" /> 게시글·댓글</small
+          >
+        </section>
         <section class="admin-panel">
           <div class="admin-section-title">
             <div>

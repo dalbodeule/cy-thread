@@ -22,12 +22,30 @@ export default defineEventHandler(async (event) => {
     .trim()
     .slice(0, 80);
   const sort = String(getQuery(event).sort ?? 'activity');
+  const pinnedOnly = String(getQuery(event).pinned ?? '') === '1';
+  const lockedOnly = String(getQuery(event).locked ?? '') === '1';
   const limit = Math.min(50, Math.max(1, Number(getQuery(event).limit) || 20));
   const offset = Math.max(0, Number(getQuery(event).offset) || 0);
   const filters = [eq(threads.forumId, forum.id), eq(threads.isDeleted, false)];
   if (categorySlug) filters.push(eq(categories.slug, categorySlug));
-  if (query)
-    filters.push(or(like(threads.title, `%${query}%`), like(posts.markdown, `%${query}%`))!);
+  if (pinnedOnly) filters.push(eq(threads.isPinned, true));
+  if (lockedOnly) filters.push(eq(threads.isLocked, true));
+  if (query) {
+    if ([...query].length >= 3) {
+      // Quote the input as an FTS phrase so punctuation cannot become FTS operators.
+      const ftsPhrase = `"${query.replaceAll('"', '""')}"`;
+      filters.push(sql`exists (
+        select 1
+        from posts_fts
+        inner join ${posts} as searchable_posts on searchable_posts.id = posts_fts.rowid
+        where posts_fts match ${ftsPhrase}
+          and posts_fts.thread_id = ${threads.id}
+          and searchable_posts.is_deleted = 0
+      )`);
+    } else {
+      filters.push(or(like(threads.title, `%${query}%`), like(posts.markdown, `%${query}%`))!);
+    }
+  }
 
   const result = await db
     .select({
@@ -40,6 +58,7 @@ export default defineEventHandler(async (event) => {
       createdAt: threads.createdAt,
       lastPostAt: threads.lastPostAt,
       isPinned: threads.isPinned,
+      isLocked: threads.isLocked,
       isBookmarked: sql<boolean>`exists (
       select 1 from ${threadBookmarks}
       where ${threadBookmarks.threadId} = ${threads.id}

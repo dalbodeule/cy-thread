@@ -953,9 +953,12 @@ async function moderateThread(action: 'lock' | 'pin') {
                 </button>
               </div>
               <h3>
-              <NuxtLink class="thread-title-button" :to="`/forums/${forumSlug}/threads/${thread.id}`">
-                {{ thread.title }}
-              </NuxtLink>
+                <NuxtLink
+                  class="thread-title-button"
+                  :to="`/forums/${forumSlug}/threads/${thread.id}`"
+                >
+                  {{ thread.title }}
+                </NuxtLink>
               </h3>
               <p class="thread-excerpt">{{ thread.excerpt }}</p>
               <div class="thread-footer">

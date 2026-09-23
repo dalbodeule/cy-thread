@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 import { forumBans, forums, posts, threads } from '~~/server/db/schema';
 import useDrizzle from '~~/server/utils/useDrizzle';
 import linkInlineAttachments from '~~/server/utils/linkInlineAttachments';
@@ -27,7 +27,9 @@ export default defineEventHandler(async (event) => {
 
   const slug = getRouterParam(event, 'slug');
   const threadId = Number(getRouterParam(event, 'threadId'));
-  const body = await readBody<{ body?: unknown; turnstileToken?: unknown }>(event);
+  const body = await readBody<{ body?: unknown; parentPostId?: unknown; turnstileToken?: unknown }>(
+    event
+  );
   const markdown = String(body?.body ?? '').trim();
   if (!slug || !Number.isInteger(threadId) || threadId < 1) {
     throw createError({ statusCode: 400, statusMessage: 'Invalid community or thread' });
@@ -63,11 +65,39 @@ export default defineEventHandler(async (event) => {
   if (ban)
     throw createError({ statusCode: 403, statusMessage: 'You cannot reply in this community' });
 
+  const [starter] = await db
+    .select({ id: posts.id, depth: posts.depth })
+    .from(posts)
+    .where(and(eq(posts.threadId, threadId), eq(posts.isDeleted, false)))
+    .orderBy(asc(posts.createdAt), asc(posts.id))
+    .limit(1);
+  if (!starter) throw createError({ statusCode: 409, statusMessage: 'Thread has no starter post' });
+  const parentPostId = body?.parentPostId == null ? starter.id : Number(body.parentPostId);
+  if (!Number.isInteger(parentPostId) || parentPostId < 1) {
+    throw createError({ statusCode: 400, statusMessage: 'Invalid reply target' });
+  }
+  const parent = await db.query.posts.findFirst({
+    where: and(
+      eq(posts.id, parentPostId),
+      eq(posts.threadId, threadId),
+      eq(posts.isDeleted, false)
+    ),
+  });
+  if (!parent) throw createError({ statusCode: 404, statusMessage: 'Reply target not found' });
+  if (parent.depth >= 2) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'Replies are limited to two nested levels',
+    });
+  }
+
   const now = new Date();
   const [reply] = await db
     .insert(posts)
     .values({
       threadId,
+      parentPostId,
+      depth: parent.depth + 1,
       authorUserId,
       markdown,
       htmlSanitized: `<p>${escapeHtml(markdown).replace(/\r\n?|\n/g, '<br>')}</p>`,

@@ -1,5 +1,5 @@
 import { and, desc, eq } from 'drizzle-orm';
-import { forums, reports, threads, users } from '~~/server/db/schema';
+import { forums, posts, reports, threads, users } from '~~/server/db/schema';
 import useDrizzle from '~~/server/utils/useDrizzle';
 import requireForumModerator from '~~/server/utils/requireForumModerator';
 
@@ -30,6 +30,10 @@ export default defineEventHandler(async (event) => {
       status: reports.status,
       createdAt: reports.createdAt,
       threadId: reports.threadId,
+      postId: reports.postId,
+      postBody: posts.markdown,
+      postDeleted: posts.isDeleted,
+      postAuthorUserId: posts.authorUserId,
       threadTitle: threads.title,
       threadAuthorUserId: threads.authorUserId,
       threadDeleted: threads.isDeleted,
@@ -38,6 +42,7 @@ export default defineEventHandler(async (event) => {
     .from(reports)
     .innerJoin(threads, eq(reports.threadId, threads.id))
     .innerJoin(users, eq(reports.reporterUserId, users.id))
+    .leftJoin(posts, eq(reports.postId, posts.id))
     .where(and(eq(reports.forumId, forum.id), eq(reports.status, status)))
     .orderBy(desc(reports.createdAt))
     .limit(limit);

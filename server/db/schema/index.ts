@@ -98,6 +98,12 @@ export const threadsRelations = relations(threads, ({ one, many }) => ({
 
 export const postsRelations = relations(posts, ({ one, many }) => ({
   thread: one(threads, { fields: [posts.threadId], references: [threads.id] }),
+  parent: one(posts, {
+    fields: [posts.parentPostId],
+    references: [posts.id],
+    relationName: 'postReplies',
+  }),
+  replies: many(posts, { relationName: 'postReplies' }),
   author: one(users, { fields: [posts.authorUserId], references: [users.id] }),
   attachments: many(attachments),
 }));

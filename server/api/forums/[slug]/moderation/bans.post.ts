@@ -1,5 +1,5 @@
 import { and, eq } from 'drizzle-orm';
-import { forumBans, forumFollowers, forums, users } from '~~/server/db/schema';
+import { forumAdmins, forumBans, forumFollowers, forums, users } from '~~/server/db/schema';
 import useDrizzle from '~~/server/utils/useDrizzle';
 import requireForumModerator from '~~/server/utils/requireForumModerator';
 
@@ -24,12 +24,24 @@ export default defineEventHandler(async (event) => {
   const db = useDrizzle(event.context.cloudflare.env.DB);
   const forum = await db.query.forums.findFirst({ where: eq(forums.slug, slug) });
   if (!forum) throw createError({ statusCode: 404, statusMessage: 'Community not found' });
-  await requireForumModerator(event, forum.id);
+  const actor = await requireForumModerator(event, forum.id);
   if (forum.ownerUserId === userId) {
     throw createError({ statusCode: 400, statusMessage: 'The community owner cannot be banned' });
   }
   const target = await db.query.users.findFirst({ where: eq(users.id, userId) });
   if (!target) throw createError({ statusCode: 404, statusMessage: 'Member not found' });
+  const targetRole = await db.query.forumAdmins.findFirst({
+    where: and(eq(forumAdmins.forumId, forum.id), eq(forumAdmins.userId, userId)),
+  });
+  if (targetRole?.role === 'admin' && actor.role !== 'owner') {
+    throw createError({
+      statusCode: 403,
+      statusMessage: 'Only the owner can manage an admin account',
+    });
+  }
+  if (targetRole?.role === 'mod' && actor.role === 'mod') {
+    throw createError({ statusCode: 403, statusMessage: 'Admins manage moderator accounts' });
+  }
 
   if (body.banned) {
     await db

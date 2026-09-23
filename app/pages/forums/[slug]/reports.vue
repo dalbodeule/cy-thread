@@ -6,6 +6,10 @@ type Report = {
   status: string;
   createdAt: string;
   threadId: number | null;
+  postId: number | null;
+  postBody: string | null;
+  postDeleted: boolean | null;
+  postAuthorUserId: number | null;
   threadTitle: string | null;
   threadAuthorUserId: number | null;
   threadDeleted: boolean;
@@ -42,13 +46,13 @@ async function update(report: Report, next: 'resolved' | 'dismissed') {
   }
 }
 async function ban(report: Report) {
-  if (!report.threadAuthorUserId || !window.confirm('게시글 작성자를 이 커뮤니티에서 차단할까요?'))
-    return;
+  const authorId = report.postId ? report.postAuthorUserId : report.threadAuthorUserId;
+  if (!authorId || !window.confirm('신고된 작성자를 이 커뮤니티에서 차단할까요?')) return;
   try {
     await $fetch(api('/bans'), {
       method: 'POST',
       body: {
-        userId: report.threadAuthorUserId,
+        userId: authorId,
         banned: true,
         reason: `신고 검토: ${report.reason}`,
       },
@@ -122,16 +126,22 @@ function date(value: string) {
               report.threadDeleted ? '숨김 처리된 게시글' : report.threadTitle || '삭제된 게시글'
             }}
           </h2>
+          <p v-if="report.postId" class="report-target-label">댓글 신고</p>
+          <p v-if="report.postId && report.postBody">“{{ report.postBody.slice(0, 240) }}”</p>
           <p>{{ report.details || '추가 설명이 없습니다.' }}</p>
           <small
-            >신고자 {{ report.reporter || '멤버' }} · 게시글 작성자
-            {{ report.threadAuthorUserId || '확인 불가' }}</small
+            >신고자 {{ report.reporter || '멤버' }} · 신고 대상 작성자
+            {{
+              report.postId
+                ? report.postAuthorUserId || '확인 불가'
+                : report.threadAuthorUserId || '확인 불가'
+            }}</small
           >
           <div class="report-page-actions">
             <NuxtLink
               v-if="report.threadId && !report.threadDeleted"
               class="secondary-button"
-              :to="`${forumPath}/threads/${report.threadId}`"
+              :to="`${forumPath}/threads/${report.threadId}${report.postId ? `#post-${report.postId}` : ''}`"
               >게시글 보기</NuxtLink
             ><button
               v-if="status === 'open'"
@@ -145,7 +155,11 @@ function date(value: string) {
               @click="update(report, 'resolved')"
             >
               처리 완료</button
-            ><button v-if="report.threadAuthorUserId" class="danger-button" @click="ban(report)">
+            ><button
+              v-if="report.postId ? report.postAuthorUserId : report.threadAuthorUserId"
+              class="danger-button"
+              @click="ban(report)"
+            >
               작성자 차단
             </button>
           </div>

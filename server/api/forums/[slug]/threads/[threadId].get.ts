@@ -48,10 +48,14 @@ export default defineEventHandler(async (event) => {
       authorAvatarUrl: users.avatarUrl,
       markdown: posts.markdown,
       createdAt: posts.createdAt,
+      updatedAt: posts.updatedAt,
+      parentPostId: posts.parentPostId,
+      depth: posts.depth,
+      isDeleted: posts.isDeleted,
     })
     .from(posts)
     .innerJoin(users, eq(posts.authorUserId, users.id))
-    .where(and(eq(posts.threadId, threadId), eq(posts.isDeleted, false)))
+    .where(eq(posts.threadId, threadId))
     .orderBy(asc(posts.createdAt), asc(posts.id));
 
   const session = await getUserSession(event);
@@ -68,10 +72,33 @@ export default defineEventHandler(async (event) => {
     canModerate = forum?.ownerUserId === viewerId || Boolean(admin);
   }
 
+  const replyById = new Map(replies.map((reply) => [Number(reply.id), reply]));
+  const children = new Map<number, typeof replies>();
+  for (const reply of replies) {
+    if (reply.parentPostId == null) continue;
+    const parentId = Number(reply.parentPostId);
+    children.set(parentId, [...(children.get(parentId) || []), reply]);
+  }
+  const orderedReplies: typeof replies = [];
+  const visited = new Set<number>();
+  const appendTree = (postId: number) => {
+    if (visited.has(postId)) return;
+    const post = replyById.get(postId);
+    if (!post) return;
+    visited.add(postId);
+    orderedReplies.push(post);
+    for (const child of children.get(postId) || []) appendTree(Number(child.id));
+  };
+  if (replies[0]) appendTree(Number(replies[0].id));
+  for (const reply of replies) appendTree(Number(reply.id));
+
   return {
     ...thread,
     isAuthor,
     canModerate,
-    replies: replies.map((reply) => ({ ...reply, isAuthor: Number(reply.authorId) === viewerId })),
+    replies: orderedReplies.map((reply) => ({
+      ...reply,
+      isAuthor: Number(reply.authorId) === viewerId,
+    })),
   };
 });
