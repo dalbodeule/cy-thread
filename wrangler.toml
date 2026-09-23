@@ -1,0 +1,17 @@
+name = "community"
+main = "./.output/server/index.mjs"
+workers_dev = true
+compatibility_flags = [ "nodejs_compat" ]
+compatibility_date = "2025-09-15"
+assets = { directory = "./.output/public/", binding = "ASSETS" }
+
+[vars]
+
+[[r2_buckets]]
+binding = "BLOB"
+bucket_name = "community"
+
+[[hyperdrive]]
+binding = "HYPERDRIVE"
+id = "7a3046c9cdbb499db5c69b2b6b6841f1"
+localConnectionString = "postgresql://neondb_owner:npg_9elNdaRCw1rH@ep-lingering-butterfly-a16qe38d-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"

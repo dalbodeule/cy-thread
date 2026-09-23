@@ -2,6 +2,9 @@
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
+  nitro: {
+    preset: "cloudflare_module",
+  },
   modules: [
     '@pinia/nuxt',
     'pinia-plugin-persistedstate',
@@ -11,9 +14,7 @@ export default defineNuxtConfig({
     '@nuxtjs/sitemap',
     '@nuxtjs/robots',
     'dayjs-nuxt',
-    'nuxt-lodash',
     'nuxt-auth-utils',
-    '@nuxtjs/turnstile',
-    '@hebilicious/server-block-nuxt'
+    '@nuxtjs/turnstile'
   ]
 })
