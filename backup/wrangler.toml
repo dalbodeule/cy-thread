@@ -1,0 +1,25 @@
+name = "community-backup"
+main = "./src/index.ts"
+compatibility_date = "2026-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+DATABASE_ID = "53e4ab13-9df4-4745-9aa0-dd44188c9278"
+
+[observability]
+enabled = true
+head_sampling_rate = 1
+
+[[workflows]]
+name = "community-backup-workflow"
+binding = "BACKUP_WORKFLOW"
+class_name = "CommunityBackupWorkflow"
+schedules = ["0 17 * * *"]
+
+[[r2_buckets]]
+binding = "SOURCE_BUCKET"
+bucket_name = "community"
+
+[[r2_buckets]]
+binding = "BACKUP_BUCKET"
+bucket_name = "community-backups"

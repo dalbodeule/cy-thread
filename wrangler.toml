@@ -5,6 +5,10 @@ compatibility_flags = [ "nodejs_compat" ]
 compatibility_date = "2025-09-15"
 assets = { directory = "./.output/public/", binding = "ASSETS" }
 
+[observability]
+enabled = true
+head_sampling_rate = 1
+
 [[d1_databases]]
 binding = "DB"
 database_name = "community"
@@ -14,3 +18,59 @@ migrations_dir = "server/db/migrations"
 [[r2_buckets]]
 binding = "BLOB"
 bucket_name = "community"
+
+[[ratelimits]]
+name = "CONTENT_WRITE_LIMITER"
+namespace_id = "926092301"
+[ratelimits.simple]
+limit = 10
+period = 60
+
+[[ratelimits]]
+name = "UPLOAD_LIMITER"
+namespace_id = "926092302"
+[ratelimits.simple]
+limit = 6
+period = 60
+
+[[ratelimits]]
+name = "REPORT_LIMITER"
+namespace_id = "926092303"
+[ratelimits.simple]
+limit = 5
+period = 60
+
+[[ratelimits]]
+name = "COMMUNITY_CREATE_LIMITER"
+namespace_id = "926092304"
+[ratelimits.simple]
+limit = 2
+period = 60
+
+[[ratelimits]]
+name = "MODERATION_LIMITER"
+namespace_id = "926092305"
+[ratelimits.simple]
+limit = 30
+period = 60
+
+[[ratelimits]]
+name = "UPLOAD_CLEANUP_LIMITER"
+namespace_id = "926092306"
+[ratelimits.simple]
+limit = 2
+period = 60
+
+[[ratelimits]]
+name = "GENERAL_WRITE_LIMITER"
+namespace_id = "926092307"
+[ratelimits.simple]
+limit = 60
+period = 60
+
+[[ratelimits]]
+name = "READ_LIMITER"
+namespace_id = "926092308"
+[ratelimits.simple]
+limit = 120
+period = 60

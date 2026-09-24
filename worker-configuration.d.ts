@@ -5,6 +5,14 @@ declare namespace Cloudflare {
 	interface Env {
 		BLOB: R2Bucket;
 		DB: D1Database;
+		CONTENT_WRITE_LIMITER: RateLimit;
+		UPLOAD_LIMITER: RateLimit;
+		REPORT_LIMITER: RateLimit;
+		COMMUNITY_CREATE_LIMITER: RateLimit;
+		MODERATION_LIMITER: RateLimit;
+		UPLOAD_CLEANUP_LIMITER: RateLimit;
+		GENERAL_WRITE_LIMITER: RateLimit;
+		READ_LIMITER: RateLimit;
 		ASSETS: Fetcher;
 	}
 }

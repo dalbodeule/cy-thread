@@ -41,7 +41,11 @@ export default defineEventHandler(async (event) => {
   const image = await event.context.cloudflare.env.BLOB.get(attachment.r2Key);
   if (!image) throw createError({ statusCode: 404, statusMessage: 'Image file not found' });
   setResponseHeader(event, 'Content-Type', attachment.mime);
-  setResponseHeader(event, 'Cache-Control', 'public, max-age=31536000, immutable');
+  setResponseHeader(
+    event,
+    'Cache-Control',
+    attachment.postId === null ? 'private, no-store' : 'public, max-age=31536000, immutable'
+  );
   setResponseHeader(event, 'X-Content-Type-Options', 'nosniff');
   return new Response(image.body);
 });
