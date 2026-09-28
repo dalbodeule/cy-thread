@@ -248,7 +248,7 @@ onMounted(load);
 <template>
   <div class="page-shell forum-page" :data-forum-slug="slug">
     <ForumTopbar :slug="slug" />
-    <main class="page-content page-detail">
+    <main class="page-content">
       <div class="page-breadcrumb">
         <NuxtLink :to="`${forumPath}/threads`">이야기 목록</NuxtLink><span> / 게시글</span>
       </div>

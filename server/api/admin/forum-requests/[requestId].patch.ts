@@ -4,7 +4,7 @@ import requireGlobalAdmin from '~~/server/utils/requireGlobalAdmin';
 
 export default defineEventHandler(async (event) => {
   const requestId = Number(getRouterParam(event, 'requestId'));
-  const body = await readBody<{ decision?: unknown }>(event);
+  const body = await readBody<{ decision?: unknown; blockReapply?: unknown }>(event);
   if (
     !Number.isInteger(requestId) ||
     requestId < 1 ||
@@ -18,14 +18,31 @@ export default defineEventHandler(async (event) => {
   });
   if (!request) throw createError({ statusCode: 404, statusMessage: 'Pending request not found' });
 
+  const reviewedAt = new Date();
+  const reapplyBlockedUntil = new Date(reviewedAt.getTime() + 7 * 24 * 60 * 60 * 1000);
   if (body.decision === 'reject') {
+    if (typeof body.blockReapply !== 'boolean') {
+      throw createError({
+        statusCode: 400,
+        statusMessage: 'Choose whether to restrict a new request for one week',
+      });
+    }
     const [updated] = await db
       .update(forumRequests)
-      .set({ status: 'rejected', reviewedByUserId: userId, reviewedAt: new Date() })
+      .set({
+        status: 'rejected',
+        reviewedByUserId: userId,
+        reviewedAt,
+        reapplyBlockedUntil: body.blockReapply ? reapplyBlockedUntil : null,
+      })
       .where(and(eq(forumRequests.id, requestId), eq(forumRequests.status, 'pending')))
       .returning({ id: forumRequests.id });
     if (!updated) throw createError({ statusCode: 409, statusMessage: 'Request already reviewed' });
-    return { id: requestId, status: 'rejected' };
+    return {
+      id: requestId,
+      status: 'rejected',
+      reapplyBlockedUntil: body.blockReapply ? reapplyBlockedUntil : null,
+    };
   }
 
   if (await db.query.forums.findFirst({ where: eq(forums.slug, request.slug) })) {
@@ -37,9 +54,9 @@ export default defineEventHandler(async (event) => {
     await database.batch([
       database
         .prepare(
-          "INSERT INTO forums (slug, name, owner_user_id, visibility) SELECT slug, name, requester_user_id, 'public' FROM forum_requests WHERE id = ? AND status = 'pending'"
+          "INSERT INTO forums (slug, name, owner_user_id, visibility, settings_json) SELECT slug, name, requester_user_id, 'public', ? FROM forum_requests WHERE id = ? AND status = 'pending'"
         )
-        .bind(requestId),
+        .bind(JSON.stringify({ description: request.description.slice(0, 240) }), requestId),
       database
         .prepare(
           `INSERT INTO forum_admins (forum_id, user_id, role) VALUES (${forumBySlug}, ?, 'owner')`
@@ -58,9 +75,9 @@ export default defineEventHandler(async (event) => {
       ),
       database
         .prepare(
-          "UPDATE forum_requests SET status = 'approved', reviewed_by_user_id = ?, reviewed_at = ? WHERE id = ? AND status = 'pending'"
+          "UPDATE forum_requests SET status = 'approved', reviewed_by_user_id = ?, reviewed_at = ?, reapply_blocked_until = ? WHERE id = ? AND status = 'pending'"
         )
-        .bind(userId, Date.now(), requestId),
+        .bind(userId, reviewedAt.getTime(), reapplyBlockedUntil.getTime(), requestId),
     ]);
   } catch (error) {
     console.error('Unable to approve community request', error);
@@ -69,5 +86,10 @@ export default defineEventHandler(async (event) => {
       statusMessage: 'Community request could not be approved',
     });
   }
-  return { id: requestId, slug: request.slug, status: 'approved' };
+  return {
+    id: requestId,
+    slug: request.slug,
+    status: 'approved',
+    reapplyBlockedUntil,
+  };
 });

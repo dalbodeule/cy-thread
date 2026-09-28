@@ -1,6 +1,9 @@
 <script setup lang="ts">
 const route = useRoute();
 const token = computed(() => (typeof route.query.token === 'string' ? route.query.token : ''));
+await $fetch('/api/account/verify-email', { query: { token: token.value } }).catch(() => {
+  throw createError({ statusCode: 404, statusMessage: 'Verification link not found' });
+});
 const verified = ref(false);
 const verifying = ref(false);
 const error = ref('');
@@ -13,7 +16,7 @@ async function verify() {
     await $fetch('/api/account/verify-email', { method: 'POST', body: { token: token.value } });
     verified.value = true;
   } catch {
-    error.value = '링크가 만료되었거나 이미 사용되었습니다.';
+    showError({ statusCode: 404, statusMessage: 'Verification link not found' });
   } finally {
     verifying.value = false;
   }

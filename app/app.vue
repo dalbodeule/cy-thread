@@ -51,6 +51,7 @@ watch(
 
 <template>
   <div class="site-frame">
+    <NuxtLoadingIndicator color="#31664d" :height="3" />
     <div v-if="suspension" class="account-suspension-banner" role="status">
       <strong>{{
         suspension.expiresAt

@@ -114,6 +114,17 @@ const api = (path: string) => `/api/forums/${encodeURIComponent(slug.value)}${pa
 const forumPath = computed(() => `/forums/${encodeURIComponent(slug.value)}`);
 let searchTimer: ReturnType<typeof setTimeout> | undefined;
 
+function selectCategory(nextCategory: string) {
+  category.value = nextCategory;
+  void navigateTo(
+    {
+      path: `${forumPath.value}/threads`,
+      query: nextCategory ? { category: nextCategory } : {},
+    },
+    { replace: true }
+  );
+}
+
 async function loadThreads(offset = 0) {
   loading.value = true;
   error.value = '';
@@ -168,7 +179,7 @@ async function createThread() {
     resetTurnstile();
     showComposer.value = false;
     sort.value = 'latest';
-    category.value = '';
+    selectCategory('');
     filter.value = 'all';
     await loadThreads();
   } catch {
@@ -186,6 +197,13 @@ watch(
   { immediate: true }
 );
 watch(slug, () => void loadCategories());
+watch(
+  () => route.query.category,
+  (value) => {
+    const nextCategory = typeof value === 'string' ? value : '';
+    if (category.value !== nextCategory) category.value = nextCategory;
+  }
+);
 onMounted(() => {
   if (!categories.value.length) void loadCategories();
 });
@@ -266,18 +284,6 @@ function time(value: string | null) {
           {{ showComposer ? '목록 보기' : '＋ 새 게시글' }}
         </button>
       </section>
-      <nav v-if="categories.length" class="forum-category-nav" aria-label="카테고리 바로가기">
-        <button type="button" :class="{ active: !category }" @click="category = ''">전체</button>
-        <button
-          v-for="item in categories"
-          :key="item.id"
-          type="button"
-          :class="{ active: category === item.slug }"
-          @click="category = item.slug"
-        >
-          {{ item.name }}
-        </button>
-      </nav>
       <form v-if="showComposer" class="thread-create-form" @submit.prevent="createThread">
         <label
           >카테고리<select v-model="draftCategory" required>

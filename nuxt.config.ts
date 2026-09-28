@@ -23,7 +23,7 @@ export default defineNuxtConfig({
   devtools: { enabled: true },
   runtimeConfig: {
     turnstile: { secretKey: '' },
-    public: { turnstile: { siteKey: '' } },
+    public: { turnstile: { siteKey: process.env.NUXT_PUBLIC_TURNSTILE_SITE_KEY ?? '' } },
     session: {
       password: process.env.SESSION_PASSWORD ?? '',
       // Keep the sealed token bounded while renewing the browser's idle timeout.
@@ -44,7 +44,7 @@ export default defineNuxtConfig({
       },
     },
   },
-  turnstile: { siteKey: '' },
+  turnstile: { siteKey: process.env.NUXT_PUBLIC_TURNSTILE_SITE_KEY ?? '' },
   nitro: {
     preset: 'cloudflare_module',
   },
