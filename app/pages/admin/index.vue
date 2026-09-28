@@ -1,5 +1,4 @@
 <script setup lang="ts">
-const { user, loggedIn } = useUserSession();
 type Daily = { day: string; users: number; forums: number; threads: number; posts: number };
 type Overview = {
   totals: {
@@ -105,18 +104,7 @@ onMounted(load);
 
 <template>
   <div class="page-shell">
-    <header class="page-topbar">
-      <NuxtLink class="home-brand" to="/"
-        ><span class="home-brand-icon">m</span><span>mori.space</span></NuxtLink
-      >
-      <nav class="page-nav">
-        <NuxtLink to="/">홈</NuxtLink>
-        <NuxtLink to="/admin/forum-requests">개설 신청</NuxtLink>
-      </nav>
-      <NuxtLink class="text-button" :to="loggedIn ? '/account/profile' : '/login'">
-        {{ loggedIn ? `${user?.name || '멤버'} · 프로필` : '로그인' }}
-      </NuxtLink>
-    </header>
+    <SiteTopbar />
     <main class="page-content">
       <section class="page-heading">
         <div>

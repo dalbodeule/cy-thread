@@ -129,7 +129,7 @@ onBeforeUnmount(() => clearTimeout(searchTimer));
       <div v-else-if="!members.length && !error" class="page-empty">검색 결과가 없어요.</div>
       <section v-else class="member-admin-list">
         <article v-for="member in members" :key="member.id" class="member-admin-row">
-          <span class="avatar mint">{{ (member.name || member.email || '멤버')[0] }}</span
+          <UserAvatar :src="member.avatarUrl" :name="member.name || member.email" />
           ><span class="member-admin-identity"
             ><strong>{{ member.name || '이름 미설정' }}</strong
             ><small>#{{ member.id }} · {{ member.email || '이메일 없음' }}</small

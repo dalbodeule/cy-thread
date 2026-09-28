@@ -3,6 +3,7 @@ type User = {
   id: number;
   name: string | null;
   email: string | null;
+  canReceiveMail: boolean;
   avatarUrl: string | null;
   createdAt: number;
   isGlobalAdmin: boolean;
@@ -77,16 +78,7 @@ onMounted(load);
 
 <template>
   <div class="page-shell">
-    <header class="page-topbar">
-      <NuxtLink class="home-brand" to="/"
-        ><span class="home-brand-icon">m</span><span>mori.space</span></NuxtLink
-      >
-      <nav class="page-nav">
-        <NuxtLink to="/admin">관리도구</NuxtLink>
-        <NuxtLink to="/admin/forum-requests">개설 신청</NuxtLink>
-      </nav>
-      <NuxtLink class="text-button" to="/">홈</NuxtLink>
-    </header>
+    <SiteTopbar />
     <main class="page-content">
       <div class="page-breadcrumb">
         <NuxtLink to="/admin">전체 관리</NuxtLink><span> / 사용자</span>
@@ -137,16 +129,22 @@ onMounted(load);
               <input
                 type="checkbox"
                 :checked="selectedIds.includes(member.id)"
-                :disabled="!selectedIds.includes(member.id) && selectedIds.length >= 500"
+                :disabled="
+                  !member.canReceiveMail ||
+                  (!selectedIds.includes(member.id) && selectedIds.length >= 500)
+                "
                 :aria-label="`${member.name || member.email || `사용자 ${member.id}`} 선택`"
                 @change="toggleSelected(member.id)"
               />
             </label>
             <div class="global-user-identity">
-              <span class="avatar mint">{{ (member.name || member.email || '멤버')[0] }}</span>
+              <UserAvatar :src="member.avatarUrl" :name="member.name || member.email" />
               <div>
                 <strong>{{ member.name || '이름 미설정' }}</strong>
                 <small>{{ member.email || '이메일 없음 · CHZZK 계정' }}</small>
+                <small v-if="!member.canReceiveMail"
+                  >메일 수신 불가 · 주소 확인 또는 수신 설정 필요</small
+                >
                 <small>가입 {{ new Date(member.createdAt).toLocaleDateString('ko-KR') }}</small>
               </div>
             </div>

@@ -28,7 +28,7 @@ export function sanctionMail(
 ) {
   const period = mailDurations[duration] || duration;
   const subject = `[mori.space] ${scope} 이용 정지 안내`;
-  const body = `${scope} 이용이 ${period} 정지되었습니다.\n\n사유: ${reason}\n${expiresAt ? `해제 예정: ${expiresAt.toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })} (한국 시간)\n` : '해제 예정: 영구 정지\n'}\n문의: webmaster@mori.space`;
+  const body = `${scope} 이용이 ${period} 정지되었습니다.\n\n사유: ${reason}\n${expiresAt ? `해제 예정: ${expiresAt.toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })} (한국 시간)` : '해제 예정: 영구 정지'}`;
   return {
     userId,
     recipientEmail: email,

@@ -108,6 +108,15 @@ html[data-theme='dark'] .editor.custom .toastui-editor-toolbar-icons {
   background-color: transparent !important;
   filter: none !important;
 }
+html[data-theme='dark']
+  .editor.custom
+  :is(
+    .toastui-editor-ww-container .ProseMirror,
+    .toastui-editor-md-preview .toastui-editor-contents
+  )
+  :is(p, li, h1, h2, h3, h4, h5, h6, blockquote) {
+  color: #e6f0e8 !important;
+}
 .editor.custom p,
 .editor.custom span,
 .editor.custom strike,

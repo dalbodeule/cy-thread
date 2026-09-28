@@ -48,6 +48,9 @@ export default defineEventHandler(async (event) => {
         contactEmailVerifiedAt: null,
         contactEmailVerifyToken: token,
         contactEmailVerifyExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        ...(account.avatarSource === 'gravatar'
+          ? { avatarSource: 'provider', avatarUrl: account.providerAvatarUrl }
+          : {}),
       })
       .where(eq(users.id, userId)),
     db.insert(mailOutbox).values({
@@ -59,7 +62,13 @@ export default defineEventHandler(async (event) => {
     }),
   ]);
   await setUserSession(event, {
-    user: { id: account.id, name: account.name || '멤버', email, avatarUrl: account.avatarUrl },
+    user: {
+      id: account.id,
+      name: account.name || '멤버',
+      email,
+      avatarUrl:
+        account.avatarSource === 'gravatar' ? account.providerAvatarUrl : account.avatarUrl,
+    },
   });
   return { email, verificationSent: true };
 });

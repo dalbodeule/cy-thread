@@ -8,6 +8,7 @@ type Detail = {
   category: string;
   categorySlug: string;
   author: string | null;
+  authorAvatarUrl: string | null;
   createdAt: string;
   isLocked: boolean;
   isPinned: boolean;
@@ -16,6 +17,7 @@ type Detail = {
   replies: Array<{
     id: number;
     author: string | null;
+    authorAvatarUrl: string | null;
     authorId: number;
     markdown: string;
     createdAt: string;
@@ -289,8 +291,7 @@ onMounted(load);
           :class="`post-depth-${post.depth}`"
         >
           <div class="detail-page-author">
-            <span class="avatar mint">{{ (post.author || '멤')[0] }}</span
-            ><span
+            <UserAvatar :src="post.authorAvatarUrl" :name="post.author" /><span
               ><strong>{{ post.author || '멤버' }}</strong
               ><small
                 >{{ new Date(post.createdAt).toLocaleString('ko-KR')

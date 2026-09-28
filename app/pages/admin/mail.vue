@@ -4,9 +4,7 @@ useSeoMeta({ title: '전체 메일 관리 | mori.space', robots: 'noindex, nofol
 </script>
 <template>
   <div class="page-shell">
-    <header class="page-topbar">
-      <NuxtLink class="brand" to="/">mori.space</NuxtLink><NuxtLink to="/admin">관리도구</NuxtLink>
-    </header>
+    <SiteTopbar />
     <main class="page-content">
       <div class="page-breadcrumb">
         <NuxtLink to="/admin">전체 관리자</NuxtLink><span> / 메일 관리</span>

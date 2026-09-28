@@ -140,15 +140,7 @@ onMounted(load);
 
 <template>
   <div class="page-shell">
-    <header class="page-topbar">
-      <NuxtLink class="home-brand" to="/"
-        ><span class="home-brand-icon">m</span><span>mori.space</span></NuxtLink
-      >
-      <nav class="page-nav">
-        <NuxtLink to="/admin">관리도구</NuxtLink><NuxtLink to="/admin/users">사용자</NuxtLink>
-      </nav>
-      <NuxtLink class="text-button" to="/">홈</NuxtLink>
-    </header>
+    <SiteTopbar />
     <main class="page-content">
       <div class="page-breadcrumb">
         <NuxtLink to="/admin/users">사용자 관리</NuxtLink><span> / 활동·제재</span>

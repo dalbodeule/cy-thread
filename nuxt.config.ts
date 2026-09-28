@@ -13,6 +13,7 @@ export default defineNuxtConfig({
     '/account/**': { robots: false },
     '/account': { robots: false },
     '/login': { robots: false },
+    '/forums/request': { robots: false },
     '/mail/**': { robots: false },
     '/mail': { robots: false },
     '/forums/*/admin/**': { robots: false },

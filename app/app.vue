@@ -50,13 +50,16 @@ watch(
 </script>
 
 <template>
-  <div v-if="suspension" class="account-suspension-banner" role="status">
-    <strong>{{
-      suspension.expiresAt
-        ? `계정 활동 정지 · ${new Date(suspension.expiresAt).toLocaleString('ko-KR')}까지`
-        : '계정 활동 영구 정지'
-    }}</strong>
-    <span>사유: {{ suspension.reason }} · 글쓰기와 기타 변경 작업이 제한됩니다.</span>
+  <div class="site-frame">
+    <div v-if="suspension" class="account-suspension-banner" role="status">
+      <strong>{{
+        suspension.expiresAt
+          ? `계정 활동 정지 · ${new Date(suspension.expiresAt).toLocaleString('ko-KR')}까지`
+          : '계정 활동 영구 정지'
+      }}</strong>
+      <span>사유: {{ suspension.reason }} · 글쓰기와 기타 변경 작업이 제한됩니다.</span>
+    </div>
+    <NuxtPage />
+    <SiteFooter />
   </div>
-  <NuxtPage />
 </template>

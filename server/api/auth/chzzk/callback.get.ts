@@ -120,7 +120,7 @@ export default defineEventHandler(async (event) => {
       else {
         const [created] = await db
           .insert(users)
-          .values({ name: channelName, avatarUrl })
+          .values({ name: channelName, avatarUrl, providerAvatarUrl: avatarUrl })
           .returning({ id: users.id });
         if (!created) throw new Error('Unable to create CHZZK user');
         userId = created.id;
@@ -145,9 +145,19 @@ export default defineEventHandler(async (event) => {
         userId = concurrent.userId;
       }
     }
-    if (avatarUrl) await db.update(users).set({ avatarUrl }).where(eq(users.id, userId));
-    const user = await db.query.users.findFirst({ where: eq(users.id, userId) });
+    let user = await db.query.users.findFirst({ where: eq(users.id, userId) });
     if (!user) throw new Error('CHZZK user not found');
+    if (avatarUrl && !user.providerAvatarUrl) {
+      const [updated] = await db
+        .update(users)
+        .set({
+          providerAvatarUrl: avatarUrl,
+          ...(user.avatarSource === 'provider' && !user.avatarUrl ? { avatarUrl } : {}),
+        })
+        .where(eq(users.id, userId))
+        .returning();
+      if (updated) user = updated;
+    }
     await setUserSession(event, {
       user: {
         id: user.id,

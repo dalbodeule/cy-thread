@@ -28,7 +28,6 @@ type LatestThread = {
   lastPostAt: number;
 };
 
-const { user, loggedIn, clear } = useUserSession();
 const { data: forums } = await useFetch<Forum[]>('/api/forums');
 const { data: featured } = await useFetch<FeaturedCategory[]>('/api/featured-categories');
 const hasFeaturedActivity = computed(() =>
@@ -51,11 +50,6 @@ const excerpt = (value: string | null) =>
     .trim()
     .slice(0, 130);
 const date = (value: number) => new Date(value).toLocaleDateString('ko-KR');
-async function logout() {
-  await $fetch('/api/auth/logout', { method: 'POST' });
-  await clear();
-  await navigateTo('/');
-}
 useSeoMeta({
   title: 'mori.space | 관심사가 모이는 커뮤니티',
   description: '다양한 Forum과 게시글 모음을 둘러보고 관심 있는 주제의 대화에 참여하세요.',
@@ -76,19 +70,7 @@ useHead({ link: [{ rel: 'canonical', href: 'https://community.mori.space/' }] })
         <a href="#latest">최근 이야기</a>
         <NuxtLink to="/explore">카테고리 찾기</NuxtLink>
       </nav>
-      <div class="home-account-actions">
-        <ThemeControl />
-        <template v-if="loggedIn">
-          <NuxtLink class="text-button" to="/account/profile"
-            >{{ user?.name || '멤버' }} · 프로필</NuxtLink
-          >
-          <NuxtLink v-if="adminStatus?.isGlobalAdmin" class="admin-tool-button" to="/admin"
-            >관리도구</NuxtLink
-          >
-          <button class="text-button" @click="logout">로그아웃</button>
-        </template>
-        <NuxtLink v-else class="primary-button" to="/login">로그인</NuxtLink>
-      </div>
+      <HeaderAccountActions :is-global-admin="adminStatus?.isGlobalAdmin" />
     </header>
 
     <main class="page-content home-content">
@@ -204,9 +186,5 @@ useHead({ link: [{ rel: 'canonical', href: 'https://community.mori.space/' }] })
         </p>
       </section>
     </main>
-    <footer class="home-footer">
-      <strong>mori.space</strong><span>관심사가 모이는 커뮤니티</span
-      ><NuxtLink to="/explore">카테고리 찾기</NuxtLink>
-    </footer>
   </div>
 </template>

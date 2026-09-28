@@ -6,11 +6,13 @@ import useDrizzle from '~~/server/utils/useDrizzle';
 const mutatingMethods = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 const maxApiBodyBytes = 1024 * 1024;
 const maxUploadBodyBytes = 5 * 1024 * 1024 + 64 * 1024;
+const maxAvatarBodyBytes = 2 * 1024 * 1024 + 64 * 1024;
 const limiterFor = (method: string, path: string) => {
   if (method === 'GET') return 'READ_LIMITER';
   if (method === 'POST' && path === '/api/forums') return 'COMMUNITY_CREATE_LIMITER';
   if (path.endsWith('/moderation/attachments/cleanup')) return 'UPLOAD_CLEANUP_LIMITER';
   if (path.endsWith('/attachments')) return 'UPLOAD_LIMITER';
+  if (method === 'POST' && path === '/api/account/avatar') return 'UPLOAD_LIMITER';
   if (path.endsWith('/report')) return 'REPORT_LIMITER';
   if (
     (method === 'POST' && /^\/api\/forums\/[^/]+\/threads(?:\/\d+\/posts)?$/.test(path)) ||
@@ -49,7 +51,11 @@ export default defineEventHandler(async (event) => {
   if (isMutation) {
     const contentLength = Number(getRequestHeader(event, 'content-length'));
     const maxBodyBytes =
-      path.endsWith('/attachments') && method === 'POST' ? maxUploadBodyBytes : maxApiBodyBytes;
+      method === 'POST' && path.endsWith('/attachments')
+        ? maxUploadBodyBytes
+        : method === 'POST' && path === '/api/account/avatar'
+          ? maxAvatarBodyBytes
+          : maxApiBodyBytes;
     if (Number.isFinite(contentLength) && contentLength > maxBodyBytes) {
       throw createError({ statusCode: 413, statusMessage: 'Request body is too large' });
     }

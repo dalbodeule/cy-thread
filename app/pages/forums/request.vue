@@ -36,11 +36,7 @@ useSeoMeta({ title: 'Forum 개설 신청 | mori.space', robots: 'noindex, nofoll
 </script>
 <template>
   <div class="page-shell">
-    <header class="page-topbar">
-      <NuxtLink class="home-brand" to="/"
-        ><span class="home-brand-icon">m</span><span>mori.space</span></NuxtLink
-      ><ThemeControl />
-    </header>
+    <SiteTopbar />
     <main class="page-content">
       <div class="page-breadcrumb">
         <NuxtLink to="/">홈</NuxtLink><span> / Forum 개설 신청</span>

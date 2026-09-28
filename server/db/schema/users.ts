@@ -14,6 +14,9 @@ export const users = sqliteTable('users', {
   mailUnsubscribeToken: text('mail_unsubscribe_token').unique(),
   name: text('name'),
   avatarUrl: text('avatar_url'),
+  avatarSource: text('avatar_source').notNull().default('provider'),
+  providerAvatarUrl: text('provider_avatar_url'),
+  uploadedAvatarKey: text('uploaded_avatar_key'),
   isGlobalAdmin: integer('is_global_admin', { mode: 'boolean' }).notNull().default(false),
   createdAt: integer('created_at', { mode: 'timestamp_ms' })
     .notNull()

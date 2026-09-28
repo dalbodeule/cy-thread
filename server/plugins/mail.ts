@@ -1,3 +1,5 @@
+import { renderMail } from '~~/server/utils/renderMail';
+
 type MailEnv = {
   DB: D1Database;
   EMAIL?: {
@@ -6,6 +8,7 @@ type MailEnv = {
       from: string;
       subject: string;
       text: string;
+      html?: string;
       headers?: Record<string, string>;
     }): Promise<{ messageId: string }>;
   };
@@ -155,11 +158,13 @@ async function sendPending(env: MailEnv) {
           headers['List-Unsubscribe-Post'] = 'List-Unsubscribe=One-Click';
         }
       }
+      const rendered = renderMail(item.kind, item.subject, content, from);
       const response = await env.EMAIL.send({
         to: item.recipient_email,
         from,
         subject: item.subject,
-        text: content,
+        text: rendered.text,
+        html: rendered.html,
         headers,
       });
       await env.DB.prepare(

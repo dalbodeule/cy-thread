@@ -25,19 +25,16 @@ export default defineOAuthGoogleEventHandler({
           email: user.email,
           name: user.name || user.email.split('@')[0] || '멤버',
           avatarUrl: user.picture || null,
+          providerAvatarUrl: user.picture || null,
         })
-        .onConflictDoUpdate({
-          target: users.email,
-          set: {
-            name: user.name || user.email.split('@')[0] || '멤버',
-            avatarUrl: user.picture || null,
-          },
-        })
+        .onConflictDoNothing()
         .returning({ id: users.id });
 
-      if (!accountUser)
+      const existingUser =
+        accountUser || (await db.query.users.findFirst({ where: eq(users.email, user.email) }));
+      if (!existingUser)
         throw createError({ statusCode: 500, statusMessage: 'Unable to create account' });
-      accountUserId = accountUser.id;
+      accountUserId = existingUser.id;
 
       const [createdAccount] = await db
         .insert(oauthAccounts)

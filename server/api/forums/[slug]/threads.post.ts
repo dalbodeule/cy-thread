@@ -55,7 +55,11 @@ export default defineEventHandler(async (event) => {
       where: and(eq(categories.forumId, forum.id), eq(categories.slug, categorySlug)),
     }),
     db.query.forumBans.findFirst({
-      where: and(eq(forumBans.forumId, forum.id), eq(forumBans.userId, authorUserId), or(isNull(forumBans.expiresAt), gt(forumBans.expiresAt, new Date()))),
+      where: and(
+        eq(forumBans.forumId, forum.id),
+        eq(forumBans.userId, authorUserId),
+        or(isNull(forumBans.expiresAt), gt(forumBans.expiresAt, new Date()))
+      ),
     }),
   ]);
   if (!category)

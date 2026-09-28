@@ -9,6 +9,7 @@ type ThreadRow = {
   category: string;
   categorySlug: string;
   author: string | null;
+  authorAvatarUrl: string | null;
   createdAt: string | null;
   lastPostAt: string | null;
   isPinned: boolean;
@@ -22,11 +23,47 @@ const {
   public: { turnstile },
 } = useRuntimeConfig();
 const slug = computed(() => String(route.params.slug));
-const { data: seoForum } = await useFetch<{ name: string; description: string }>(
-  () => `/api/forums/${encodeURIComponent(String(route.params.slug))}`,
-  { key: `forum-seo-${String(route.params.slug)}` }
-);
+const { data: seoForum } = await useFetch<{
+  name: string;
+  description: string;
+  iconText: string;
+  iconBackground: string;
+  iconColor: string;
+}>(() => `/api/forums/${encodeURIComponent(String(route.params.slug))}`, {
+  key: `forum-seo-${String(route.params.slug)}`,
+});
 if (!seoForum.value) throw createError({ statusCode: 404, statusMessage: 'Forum not found' });
+const { data: forumStats, refresh: refreshForumStats } = await useFetch<{
+  members: number;
+  threads: number;
+  posts: number;
+  categories: number;
+}>(() => `/api/forums/${encodeURIComponent(String(route.params.slug))}/stats`, {
+  key: `forum-stats-${String(route.params.slug)}`,
+});
+const { data: followState } = await useFetch<{ following: boolean }>(
+  () => `/api/forums/${encodeURIComponent(String(route.params.slug))}/follow`,
+  { key: `forum-follow-${String(route.params.slug)}`, immediate: loggedIn.value }
+);
+const followBusy = ref(false);
+const followError = ref('');
+async function toggleFollow() {
+  if (!loggedIn.value) return navigateTo('/login');
+  followBusy.value = true;
+  followError.value = '';
+  try {
+    const result = await $fetch<{ following: boolean }>(
+      `/api/forums/${encodeURIComponent(slug.value)}/follow`,
+      { method: 'POST', body: { following: !followState.value?.following } }
+    );
+    followState.value = result;
+    await refreshForumStats();
+  } catch {
+    followError.value = '팔로우 상태를 변경하지 못했어요. 잠시 후 다시 시도해 주세요.';
+  } finally {
+    followBusy.value = false;
+  }
+}
 const seoTitle = computed(() =>
   seoForum.value ? `${seoForum.value.name} | mori.space` : 'Forum | mori.space'
 );
@@ -54,7 +91,11 @@ const { data: initialRows } = await useFetch<ThreadRow[]>(
   }
 );
 const rows = ref<ThreadRow[]>(initialRows.value || []);
-const categories = ref<Category[]>([]);
+const { data: initialCategories } = await useFetch<Category[]>(
+  () => `/api/forums/${encodeURIComponent(String(route.params.slug))}/categories`,
+  { key: `forum-categories-${String(route.params.slug)}` }
+);
+const categories = ref<Category[]>(initialCategories.value || []);
 const loading = ref(false);
 const hasMore = ref(false);
 const error = ref('');
@@ -144,10 +185,10 @@ watch(
   },
   { immediate: true }
 );
-onMounted(async () => {
-  await loadCategories();
-});
 watch(slug, () => void loadCategories());
+onMounted(() => {
+  if (!categories.value.length) void loadCategories();
+});
 watch(
   () => route.query.compose,
   (value) => {
@@ -172,18 +213,71 @@ function time(value: string | null) {
     <ForumTopbar :slug="slug" />
     <main class="page-content">
       <div class="page-breadcrumb">
-        <NuxtLink to="/">커뮤니티</NuxtLink><span> / </span><span>{{ slug }}</span>
+        <NuxtLink to="/">Forum 둘러보기</NuxtLink><span> / {{ seoForum?.name || slug }}</span>
       </div>
+      <section class="forum-intro">
+        <div class="forum-intro-main">
+          <span
+            class="forum-intro-icon"
+            :style="{ backgroundColor: seoForum?.iconBackground, color: seoForum?.iconColor }"
+            >{{ seoForum?.iconText || 'F' }}</span
+          >
+          <div>
+            <p class="section-kicker">FORUM · /{{ slug }}</p>
+            <h1>{{ seoForum?.name || slug }}</h1>
+            <p>{{ seoForum?.description || '이 Forum에서 이야기를 나눠보세요.' }}</p>
+          </div>
+        </div>
+        <div class="forum-intro-stats" aria-label="Forum 현황">
+          <span
+            ><strong>{{ (forumStats?.members || 0).toLocaleString('ko-KR') }}</strong
+            >멤버</span
+          ><span
+            ><strong>{{ (forumStats?.threads || 0).toLocaleString('ko-KR') }}</strong
+            >게시글</span
+          ><span
+            ><strong>{{ (forumStats?.categories || 0).toLocaleString('ko-KR') }}</strong
+            >카테고리</span
+          >
+        </div>
+        <div class="forum-intro-actions">
+          <button
+            type="button"
+            class="secondary-button"
+            :aria-pressed="Boolean(followState?.following)"
+            :disabled="followBusy"
+            @click="toggleFollow"
+          >
+            {{
+              followBusy ? '처리 중…' : followState?.following ? '✓ 팔로우 중' : '＋ Forum 팔로우'
+            }}
+          </button>
+          <span>팔로우하면 이 Forum의 멤버로 참여할 수 있어요.</span>
+        </div>
+        <p v-if="followError" class="page-alert" role="alert">{{ followError }}</p>
+      </section>
       <section class="page-heading">
         <div>
-          <p class="section-kicker">COMMUNITY THREADS</p>
-          <h1>이야기 목록</h1>
-          <p>질문과 답변, 멤버들의 이야기를 찾아보세요.</p>
+          <p class="section-kicker">DISCUSSIONS</p>
+          <h2>게시글</h2>
+          <p>카테고리를 골라 대화를 살펴보거나 새 글을 작성하세요.</p>
         </div>
         <button class="primary-button" @click="showComposer = !showComposer">
-          {{ showComposer ? '목록 보기' : '＋ 새 이야기' }}
+          {{ showComposer ? '목록 보기' : '＋ 새 게시글' }}
         </button>
       </section>
+      <nav v-if="categories.length" class="forum-category-nav" aria-label="카테고리 바로가기">
+        <button type="button" :class="{ active: !category }" @click="category = ''">전체</button>
+        <button
+          v-for="item in categories"
+          :key="item.id"
+          type="button"
+          :class="{ active: category === item.slug }"
+          @click="category = item.slug"
+        >
+          {{ item.name }}
+        </button>
+      </nav>
       <form v-if="showComposer" class="thread-create-form" @submit.prevent="createThread">
         <label
           >카테고리<select v-model="draftCategory" required>
@@ -246,15 +340,9 @@ function time(value: string | null) {
         <label class="page-search"
           ><span>⌕</span
           ><input v-model="search" type="search" placeholder="제목이나 내용 검색" /></label
-        ><select v-model="category" aria-label="카테고리">
-          <option value="">모든 카테고리</option>
-          <option v-for="item in categories" :key="item.id" :value="item.slug">
-            {{ item.name }}
-          </option>
-        </select>
-        <select v-model="filter" aria-label="이야기 상태">
-          <option value="all">모든 이야기</option>
-          <option value="pinned">고정된 이야기</option>
+        ><select v-model="filter" aria-label="이야기 상태">
+          <option value="all">모든 게시글</option>
+          <option value="pinned">고정된 게시글</option>
           <option value="locked">댓글 잠금</option>
         </select>
         <div class="page-tabs">
@@ -265,8 +353,25 @@ function time(value: string | null) {
       <p v-if="error" class="page-alert" role="alert">{{ error }}</p>
       <div v-else-if="loading && !rows.length" class="page-empty">이야기를 불러오는 중…</div>
       <div v-else-if="!rows.length" class="page-empty">
-        <strong>아직 이야기가 없어요</strong>
-        <p>첫 질문을 남겨 대화를 시작해 보세요.</p>
+        <strong>{{
+          search || category || filter !== 'all'
+            ? '조건에 맞는 게시글이 없어요'
+            : '아직 게시글이 없어요'
+        }}</strong>
+        <p>
+          {{
+            search || category || filter !== 'all'
+              ? '검색어나 필터를 바꿔보세요.'
+              : '첫 게시글을 작성해 대화를 시작해 보세요.'
+          }}
+        </p>
+        <button
+          v-if="!search && !category && filter === 'all'"
+          class="secondary-button"
+          @click="showComposer = true"
+        >
+          첫 게시글 작성
+        </button>
       </div>
       <div v-else class="page-thread-list">
         <article v-for="row in rows" :key="row.id" class="page-thread-row">
@@ -281,7 +386,11 @@ function time(value: string | null) {
               row.title
             }}</NuxtLink>
             <p>{{ row.excerpt || '내용을 확인해 보세요.' }}</p>
-            <small>{{ row.author || '멤버' }}</small>
+            <small class="forum-thread-author"
+              ><UserAvatar :src="row.authorAvatarUrl" :name="row.author" />{{
+                row.author || '멤버'
+              }}</small
+            >
           </div>
           <NuxtLink class="page-reply-count" :to="`${forumPath}/threads/${row.id}`"
             ><strong>{{ Math.max(0, row.replyCount - 1) }}</strong

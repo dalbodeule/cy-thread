@@ -25,6 +25,7 @@ export default async function createMailCampaign(event: H3Event, forumSlug?: str
     subject.length > 150 ||
     content.length < 5 ||
     content.length > 10000 ||
+    /\{\{[^{}]+\}\}/.test(content) ||
     (audience === 'selected' &&
       (!selectedIds.length ||
         selectedIds.length > 500 ||

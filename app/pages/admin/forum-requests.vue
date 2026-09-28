@@ -36,14 +36,7 @@ onMounted(load);
 </script>
 <template>
   <div class="page-shell">
-    <header class="page-topbar">
-      <NuxtLink class="home-brand" to="/"
-        ><span class="home-brand-icon">m</span><span>mori.space</span></NuxtLink
-      >
-      <nav class="page-nav">
-        <NuxtLink to="/">홈</NuxtLink><NuxtLink to="/admin">전체 관리</NuxtLink>
-      </nav>
-    </header>
+    <SiteTopbar />
     <main class="page-content">
       <section class="page-heading">
         <div>

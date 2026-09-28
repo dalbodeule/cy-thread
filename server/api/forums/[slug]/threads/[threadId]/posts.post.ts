@@ -60,7 +60,11 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 423, statusMessage: 'This thread is locked' });
 
   const ban = await db.query.forumBans.findFirst({
-    where: and(eq(forumBans.forumId, forum.id), eq(forumBans.userId, authorUserId), or(isNull(forumBans.expiresAt), gt(forumBans.expiresAt, new Date()))),
+    where: and(
+      eq(forumBans.forumId, forum.id),
+      eq(forumBans.userId, authorUserId),
+      or(isNull(forumBans.expiresAt), gt(forumBans.expiresAt, new Date()))
+    ),
   });
   if (ban)
     throw createError({ statusCode: 403, statusMessage: 'You cannot reply in this community' });

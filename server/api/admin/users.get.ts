@@ -6,6 +6,7 @@ interface UserRow {
   id: number;
   name: string | null;
   email: string | null;
+  canReceiveMail: number;
   avatarUrl: string | null;
   createdAt: number;
   isGlobalAdmin: number;
@@ -55,6 +56,10 @@ export default defineEventHandler(async (event) => {
     `),
     db.all<UserRow>(sql`
       SELECT u.id, u.name, coalesce(u.email, u.contact_email) AS email, u.avatar_url AS avatarUrl,
+             CASE WHEN u.mail_notifications_enabled = 1 AND
+               (nullif(u.email, '') IS NOT NULL OR
+                (u.contact_email_verified_at IS NOT NULL AND nullif(u.contact_email, '') IS NOT NULL))
+               THEN 1 ELSE 0 END AS canReceiveMail,
              u.created_at AS createdAt, u.is_global_admin AS isGlobalAdmin,
              (SELECT count(*) FROM threads t WHERE t.author_user_id = u.id
                AND t.is_deleted = 0) AS threadCount,
@@ -99,6 +104,7 @@ export default defineEventHandler(async (event) => {
     items: rows.map((row) => ({
       ...row,
       isGlobalAdmin: Boolean(row.isGlobalAdmin),
+      canReceiveMail: Boolean(row.canReceiveMail),
       lastActivityAt: row.lastActivityAt || null,
     })),
     total: totalRows[0]?.count ?? 0,

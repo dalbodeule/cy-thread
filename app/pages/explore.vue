@@ -14,8 +14,6 @@ type Category = {
   threadCount: number;
 };
 const query = ref('');
-const { user, loggedIn } = useUserSession();
-const { data: adminStatus } = await useFetch<{ isGlobalAdmin: boolean }>('/api/admin/status');
 const forum = ref('');
 const forums = ref<Forum[]>([]);
 const categories = ref<Category[]>([]);
@@ -55,19 +53,7 @@ onBeforeUnmount(() => clearTimeout(timer));
 
 <template>
   <div class="page-shell">
-    <header class="page-topbar">
-      <NuxtLink class="home-brand" to="/"
-        ><span class="home-brand-icon">m</span><span>mori.space</span></NuxtLink
-      >
-      <nav class="page-nav"><NuxtLink to="/">홈</NuxtLink></nav>
-      <div class="home-account-actions">
-        <ThemeControl /><NuxtLink v-if="loggedIn" class="text-button" to="/account/profile"
-          >{{ user?.name || '멤버' }} · 프로필</NuxtLink
-        ><NuxtLink v-if="adminStatus?.isGlobalAdmin" class="admin-tool-button" to="/admin"
-          >관리도구</NuxtLink
-        ><NuxtLink v-if="!loggedIn" class="text-button" to="/login">로그인</NuxtLink>
-      </div>
-    </header>
+    <SiteTopbar />
     <main class="page-content">
       <section class="page-heading">
         <div>
