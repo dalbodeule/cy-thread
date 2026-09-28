@@ -38,14 +38,32 @@ export default defineEventHandler(async (event) => {
     .limit(1);
   if (!attachment) throw createError({ statusCode: 404, statusMessage: 'Image not found' });
 
+  const isPublished = attachment.postId !== null;
+  const cacheControl = isPublished ? 'public, max-age=60, s-maxage=3600' : 'private, no-store';
+  setResponseHeader(event, 'Content-Type', attachment.mime);
+  setResponseHeader(event, 'Cache-Control', cacheControl);
+  const cache = isPublished
+    ? (globalThis.caches as (CacheStorage & { default: Cache }) | undefined)?.default
+    : undefined;
+  const cacheKey = new Request(getRequestURL(event).toString());
+  const cached = await cache?.match(cacheKey).catch(() => undefined);
+  if (cached) return cached;
+
   const image = await event.context.cloudflare.env.BLOB.get(attachment.r2Key);
   if (!image) throw createError({ statusCode: 404, statusMessage: 'Image file not found' });
-  setResponseHeader(event, 'Content-Type', attachment.mime);
-  setResponseHeader(
-    event,
-    'Cache-Control',
-    attachment.postId === null ? 'private, no-store' : 'public, max-age=31536000, immutable'
-  );
-  setResponseHeader(event, 'X-Content-Type-Options', 'nosniff');
-  return new Response(image.body);
+  const response = new Response(image.body, {
+    headers: {
+      'Content-Type': attachment.mime,
+      'Cache-Control': cacheControl,
+      'X-Content-Type-Options': 'nosniff',
+    },
+  });
+  if (cache) {
+    event.waitUntil(
+      cache.put(cacheKey, response.clone()).catch((error: unknown) => {
+        console.warn('Unable to cache published image', error);
+      })
+    );
+  }
+  return response;
 });

@@ -1,6 +1,7 @@
 import { and, eq } from 'drizzle-orm';
 import { forumAdmins, forums, posts, threads } from '~~/server/db/schema';
 import useDrizzle from '~~/server/utils/useDrizzle';
+import isGlobalAdmin from '~~/server/utils/isGlobalAdmin';
 
 export default defineEventHandler(async (event) => {
   const session = await requireUserSession(event);
@@ -27,7 +28,9 @@ export default defineEventHandler(async (event) => {
   }
 
   const admin =
-    thread.authorUserId === actorUserId || forum.ownerUserId === actorUserId
+    thread.authorUserId === actorUserId ||
+    forum.ownerUserId === actorUserId ||
+    (await isGlobalAdmin(db, actorUserId))
       ? true
       : Boolean(
           await db.query.forumAdmins.findFirst({

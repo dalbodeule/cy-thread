@@ -3,7 +3,7 @@ type Moderator = {
   id: number;
   name: string | null;
   email: string | null;
-  role: 'owner' | 'admin' | 'mod';
+  role: 'global' | 'owner' | 'admin' | 'mod';
 };
 type Stats = { members: number; threads: number; posts: number; categories: number };
 type Activity = {
@@ -21,14 +21,15 @@ const stats = ref<Stats>({ members: 0, threads: 0, posts: 0, categories: 0 });
 const activity = ref<Activity>({ activeMembers30d: 0, openReports: 0, daily: [] });
 const email = ref('');
 const role = ref<'admin' | 'mod'>('mod');
+const newOwnerEmail = ref('');
 const error = ref('');
 const notice = ref('');
 const loading = ref(true);
 const myRole = computed(
   () => moderators.value.find((member) => member.id === Number(user.value?.id))?.role
 );
-const canAppointAdmin = computed(() => myRole.value === 'owner');
-const canManage = computed(() => myRole.value === 'owner' || myRole.value === 'admin');
+const canAppointAdmin = computed(() => myRole.value === 'global' || myRole.value === 'owner');
+const canManage = computed(() => ['global', 'owner', 'admin'].includes(myRole.value || ''));
 async function load() {
   loading.value = true;
   try {
@@ -72,23 +73,27 @@ async function remove(member: Moderator) {
     error.value = '권한을 해제하지 못했어요.';
   }
 }
+async function transferOwner() {
+  if (!window.confirm('Forum 소유자를 이 멤버로 변경할까요?')) return;
+  try {
+    await $fetch(`/api/admin/forums/${encodeURIComponent(slug.value)}/owner`, {
+      method: 'PATCH',
+      body: { email: newOwnerEmail.value },
+    });
+    newOwnerEmail.value = '';
+    notice.value = 'Forum 소유자를 변경했어요.';
+    await load();
+  } catch {
+    error.value = '소유자를 변경하지 못했어요. 가입한 멤버의 이메일을 확인해 주세요.';
+  }
+}
 watch(slug, () => void load());
 onMounted(load);
 </script>
 
 <template>
-  <div class="page-shell">
-    <header class="page-topbar">
-      <NuxtLink class="brand" to="/"
-        ><span class="brand-mark">c<span>y</span></span
-        ><span class="brand-word">thread<span class="brand-dot">.</span></span></NuxtLink
-      >
-      <nav class="page-nav">
-        <NuxtLink :to="`${forumPath}/threads`">이야기 목록</NuxtLink
-        ><NuxtLink :to="`${forumPath}/reports`">신고함</NuxtLink>
-      </nav>
-      <NuxtLink class="text-button" to="/login">계정</NuxtLink>
-    </header>
+  <div class="page-shell forum-page" :data-forum-slug="slug">
+    <ForumTopbar :slug="slug" />
     <main class="page-content">
       <div class="page-breadcrumb">
         <NuxtLink :to="`${forumPath}/threads`">커뮤니티</NuxtLink><span> / 운영 관리</span>
@@ -123,11 +128,16 @@ onMounted(load);
           </article>
         </section>
         <nav class="admin-shortcuts">
+          <NuxtLink v-if="canManage" :to="`${forumPath}/admin/mail`"
+            ><span>✉</span><strong>메일 관리</strong><small>Forum 참여자 안내</small></NuxtLink
+          >
           <NuxtLink :to="`${forumPath}/threads`"
             ><span>▤</span><strong>이야기 목록</strong><small>게시글과 댓글 확인</small></NuxtLink
           ><NuxtLink :to="`${forumPath}/reports`"
             ><span>⚑</span><strong>신고함</strong><small>접수된 신고 검토</small></NuxtLink
-          ><NuxtLink :to="`${forumPath}/admin/categories`"
+          ><NuxtLink v-if="canManage" :to="`${forumPath}/admin/settings`"
+            ><span>▣</span><strong>Forum 설정</strong><small>이름·아이콘·색상</small></NuxtLink
+          ><NuxtLink v-if="canManage" :to="`${forumPath}/admin/categories`"
             ><span>◈</span><strong>카테고리</strong><small>이야기 주제 관리</small></NuxtLink
           ><NuxtLink :to="`${forumPath}/admin/users`"
             ><span>♙</span><strong>사용자</strong><small>검색·차단 관리</small></NuxtLink
@@ -189,13 +199,20 @@ onMounted(load);
               <span class="avatar mint">{{ (member.name || member.email || '멤버')[0] }}</span
               ><span class="moderator-identity"
                 ><strong>{{ member.name || '이름 미설정' }}</strong
-                ><small>{{ member.email || '이메일 비공개' }}</small></span
+                ><small>#{{ member.id }} · {{ member.email || '이메일 없음' }}</small></span
               ><span class="role-badge" :class="`role-${member.role}`">{{
-                member.role === 'owner' ? '소유자' : member.role === 'admin' ? '관리자' : '운영자'
+                member.role === 'global'
+                  ? '전체 관리자'
+                  : member.role === 'owner'
+                    ? '소유자'
+                    : member.role === 'admin'
+                      ? '관리자'
+                      : '운영자'
               }}</span
               ><button
                 v-if="
                   member.role !== 'owner' &&
+                  member.role !== 'global' &&
                   (canAppointAdmin || (canManage && member.role === 'mod'))
                 "
                 class="remove-role"
@@ -214,16 +231,17 @@ onMounted(load);
               <h2>운영진 임명</h2>
             </div>
           </div>
-          <p>가입한 멤버의 이메일 주소로 운영 권한을 부여합니다.</p>
+          <p>
+            Google 이메일 또는 사용자 ID로 운영 권한을 부여합니다. 치지직 사용자는 ID를 사용하세요.
+          </p>
           <form class="appoint-form" @submit.prevent="appoint">
             <label
-              ><span>멤버 이메일</span
+              ><span>멤버 이메일 또는 사용자 ID</span
               ><input
                 v-model="email"
-                type="email"
-                autocomplete="email"
+                type="text"
                 required
-                placeholder="member@example.com" /></label
+                placeholder="member@example.com 또는 123" /></label
             ><label
               ><span>권한</span
               ><select v-model="role">
@@ -235,8 +253,22 @@ onMounted(load);
           <small class="permission-note"
             >관리자 임명과 관리자 권한 변경은 커뮤니티 소유자만 할 수 있습니다.</small
           >
+        </section>
+        <section v-if="myRole === 'global'" class="admin-panel appoint-panel">
+          <div class="admin-section-title"><h2>Forum 소유자 변경</h2></div>
+          <p>전체 관리자만 Forum 소유자를 변경할 수 있습니다.</p>
+          <form class="appoint-form" @submit.prevent="transferOwner">
+            <label
+              ><span>새 소유자 이메일 또는 사용자 ID</span
+              ><input
+                v-model="newOwnerEmail"
+                type="text"
+                required
+                placeholder="member@example.com 또는 123" /></label
+            ><button class="primary-button" :disabled="!newOwnerEmail.trim()">소유자 변경</button>
+          </form>
         </section></template
-      ><NuxtLink class="back-link" to="/">← 커뮤니티 홈</NuxtLink>
+      ><NuxtLink class="back-link" to="/">← 전체 홈</NuxtLink>
     </main>
   </div>
 </template>

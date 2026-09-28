@@ -8,12 +8,15 @@ import '@toast-ui/editor-plugin-code-syntax-highlight/dist/toastui-editor-plugin
 import tableMergedCell from '@toast-ui/editor-plugin-table-merged-cell';
 import '@toast-ui/editor-plugin-table-merged-cell/dist/toastui-editor-plugin-table-merged-cell.css';
 
-const props = defineProps<{ id: string; content: string; forumSlug: string }>();
-const emit = defineEmits<{ 'update:content': [value: string] }>();
+const props = defineProps<{
+  id: string;
+  content: string;
+  forumSlug: string;
+  turnstileToken?: string;
+}>();
+const emit = defineEmits<{ 'update:content': [value: string]; 'turnstile-used': [] }>();
 const editorElement = ref<HTMLDivElement | null>(null);
 const editorInstance = shallowRef<Editor | null>(null);
-const uploadTurnstile = ref<{ reset: () => void } | null>(null);
-const uploadTurnstileToken = ref('');
 const {
   public: { turnstile },
 } = useRuntimeConfig();
@@ -43,6 +46,10 @@ onMounted(() => {
     },
     hooks: {
       addImageBlobHook: async (blob: Blob, callback: (url: string, text: string) => void) => {
+        if (turnstile.siteKey && !props.turnstileToken) {
+          window.alert('이미지를 첨부하려면 먼저 아래 보안 확인을 완료해 주세요.');
+          return false;
+        }
         const extensions: Record<string, string> = {
           'image/jpeg': 'jpg',
           'image/png': 'png',
@@ -58,7 +65,7 @@ onMounted(() => {
         try {
           const form = new FormData();
           form.append('file', new File([blob], `image.${extension}`, { type: blob.type }));
-          form.append('turnstileToken', uploadTurnstileToken.value);
+          form.append('turnstileToken', props.turnstileToken || '');
           const response = await fetch(
             `/api/forums/${encodeURIComponent(props.forumSlug)}/attachments`,
             {
@@ -74,10 +81,7 @@ onMounted(() => {
           window.alert('이미지를 업로드하지 못했어요. 로그인과 저장소 설정을 확인해 주세요.');
           return false;
         } finally {
-          if (turnstile.siteKey) {
-            uploadTurnstileToken.value = '';
-            uploadTurnstile.value?.reset();
-          }
+          if (turnstile.siteKey) emit('turnstile-used');
         }
       },
     },
@@ -93,17 +97,17 @@ onBeforeUnmount(() => {
 <template>
   <div>
     <div :id="id" ref="editorElement" class="editor custom" />
-    <ClientOnly v-if="turnstile.siteKey">
-      <NuxtTurnstile
-        ref="uploadTurnstile"
-        v-model="uploadTurnstileToken"
-        :options="{ sitekey: turnstile.siteKey }"
-      />
-    </ClientOnly>
   </div>
 </template>
 
 <style>
+html[data-theme='dark'] .editor.custom .toastui-editor-defaultUI-toolbar {
+  background: #f7f9fc !important;
+}
+html[data-theme='dark'] .editor.custom .toastui-editor-toolbar-icons {
+  background-color: transparent !important;
+  filter: none !important;
+}
 .editor.custom p,
 .editor.custom span,
 .editor.custom strike,

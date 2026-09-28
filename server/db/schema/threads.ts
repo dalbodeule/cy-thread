@@ -30,5 +30,6 @@ export const threads = sqliteTable(
   (table) => ({
     forumActivity: index('threads_forum_activity_idx').on(table.forumId, table.lastPostAt),
     categoryActivity: index('threads_category_activity_idx').on(table.categoryId, table.lastPostAt),
+    authorCreated: index('threads_author_created_idx').on(table.authorUserId, table.createdAt),
   })
 );

@@ -1,6 +1,7 @@
 import { and, asc, eq } from 'drizzle-orm';
 import { categories, forumAdmins, forums, posts, threads, users } from '~~/server/db/schema';
 import useDrizzle from '~~/server/utils/useDrizzle';
+import isGlobalAdmin from '~~/server/utils/isGlobalAdmin';
 
 export default defineEventHandler(async (event) => {
   const slug = getRouterParam(event, 'slug');
@@ -69,7 +70,8 @@ export default defineEventHandler(async (event) => {
         where: and(eq(forumAdmins.forumId, thread.forumId), eq(forumAdmins.userId, viewerId)),
       }),
     ]);
-    canModerate = forum?.ownerUserId === viewerId || Boolean(admin);
+    canModerate =
+      forum?.ownerUserId === viewerId || Boolean(admin) || (await isGlobalAdmin(db, viewerId));
   }
 
   const replyById = new Map(replies.map((reply) => [Number(reply.id), reply]));

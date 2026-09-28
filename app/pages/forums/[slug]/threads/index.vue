@@ -1,4 +1,7 @@
 <script setup lang="ts">
+const ToastEditor = defineAsyncComponent(
+  () => import('../../../../components/editor/ToastEditor.vue')
+);
 type ThreadRow = {
   id: number;
   title: string;
@@ -19,20 +22,52 @@ const {
   public: { turnstile },
 } = useRuntimeConfig();
 const slug = computed(() => String(route.params.slug));
+const { data: seoForum } = await useFetch<{ name: string; description: string }>(
+  () => `/api/forums/${encodeURIComponent(String(route.params.slug))}`,
+  { key: `forum-seo-${String(route.params.slug)}` }
+);
+if (!seoForum.value) throw createError({ statusCode: 404, statusMessage: 'Forum not found' });
+const seoTitle = computed(() =>
+  seoForum.value ? `${seoForum.value.name} | mori.space` : 'Forum | mori.space'
+);
+const canonical = computed(
+  () => `https://community.mori.space/forums/${encodeURIComponent(slug.value)}/threads`
+);
+useSeoMeta({
+  title: seoTitle,
+  description: () =>
+    seoForum.value?.description || `${seoForum.value?.name || 'Forum'}에서 이야기를 나누세요.`,
+  ogTitle: seoTitle,
+  ogDescription: () => seoForum.value?.description || '',
+  ogUrl: canonical,
+});
+useHead(() => ({ link: [{ rel: 'canonical', href: canonical.value }] }));
 const search = ref('');
 const sort = ref<'activity' | 'latest'>('activity');
 const filter = ref<'all' | 'pinned' | 'locked'>('all');
-const category = ref('');
-const rows = ref<ThreadRow[]>([]);
+const category = ref(typeof route.query.category === 'string' ? route.query.category : '');
+const { data: initialRows } = await useFetch<ThreadRow[]>(
+  () => `/api/forums/${encodeURIComponent(String(route.params.slug))}/threads`,
+  {
+    key: `forum-threads-${String(route.params.slug)}-${category.value}`,
+    query: { sort: 'activity', limit: 30, category: category.value || undefined },
+  }
+);
+const rows = ref<ThreadRow[]>(initialRows.value || []);
 const categories = ref<Category[]>([]);
 const loading = ref(false);
 const hasMore = ref(false);
 const error = ref('');
-const showComposer = ref(false);
+const showComposer = ref(route.query.compose === '1');
 const draftTitle = ref('');
 const draftBody = ref('');
 const draftCategory = ref('');
 const turnstileToken = ref('');
+const turnstileKey = ref(0);
+function resetTurnstile() {
+  turnstileToken.value = '';
+  turnstileKey.value += 1;
+}
 const creating = ref(false);
 const api = (path: string) => `/api/forums/${encodeURIComponent(slug.value)}${path}`;
 const forumPath = computed(() => `/forums/${encodeURIComponent(slug.value)}`);
@@ -71,6 +106,10 @@ async function loadCategories() {
 }
 async function createThread() {
   if (!loggedIn.value) return navigateTo('/login');
+  if (!draftBody.value.trim()) {
+    error.value = '게시글 내용을 입력해 주세요.';
+    return;
+  }
   creating.value = true;
   error.value = '';
   try {
@@ -85,7 +124,7 @@ async function createThread() {
     });
     draftTitle.value = '';
     draftBody.value = '';
-    turnstileToken.value = '';
+    resetTurnstile();
     showComposer.value = false;
     sort.value = 'latest';
     category.value = '';
@@ -109,6 +148,12 @@ onMounted(async () => {
   await loadCategories();
 });
 watch(slug, () => void loadCategories());
+watch(
+  () => route.query.compose,
+  (value) => {
+    if (value === '1') showComposer.value = true;
+  }
+);
 onBeforeUnmount(() => clearTimeout(searchTimer));
 function time(value: string | null) {
   if (!value) return '최근';
@@ -123,18 +168,8 @@ function time(value: string | null) {
 </script>
 
 <template>
-  <div class="page-shell">
-    <header class="page-topbar">
-      <NuxtLink class="brand" to="/"
-        ><span class="brand-mark">c<span>y</span></span
-        ><span class="brand-word">thread<span class="brand-dot">.</span></span></NuxtLink
-      >
-      <nav class="page-nav">
-        <NuxtLink to="/">둘러보기</NuxtLink
-        ><NuxtLink :to="`${forumPath}/admin`">운영 관리</NuxtLink>
-      </nav>
-      <NuxtLink class="text-button" to="/login">로그인</NuxtLink>
-    </header>
+  <div class="page-shell forum-page" :data-forum-slug="slug">
+    <ForumTopbar :slug="slug" />
     <main class="page-content">
       <div class="page-breadcrumb">
         <NuxtLink to="/">커뮤니티</NuxtLink><span> / </span><span>{{ slug }}</span>
@@ -145,7 +180,9 @@ function time(value: string | null) {
           <h1>이야기 목록</h1>
           <p>질문과 답변, 멤버들의 이야기를 찾아보세요.</p>
         </div>
-        <button class="primary-button" @click="showComposer = !showComposer">＋ 새 이야기</button>
+        <button class="primary-button" @click="showComposer = !showComposer">
+          {{ showComposer ? '목록 보기' : '＋ 새 이야기' }}
+        </button>
       </section>
       <form v-if="showComposer" class="thread-create-form" @submit.prevent="createThread">
         <label
@@ -158,24 +195,46 @@ function time(value: string | null) {
         <label
           >제목<input v-model="draftTitle" required maxlength="120" placeholder="이야기 제목"
         /></label>
-        <label
-          >내용<textarea
-            v-model="draftBody"
-            required
-            maxlength="20000"
-            rows="6"
-            placeholder="커뮤니티와 나눌 이야기를 적어 주세요."
-          />
-        </label>
+        <div class="forum-editor-field">
+          <strong>내용</strong>
+          <ClientOnly>
+            <ToastEditor
+              id="forum-thread-editor"
+              v-model:content="draftBody"
+              :forum-slug="slug"
+              :turnstile-token="turnstileToken"
+              @turnstile-used="resetTurnstile"
+            />
+            <template #fallback>
+              <textarea
+                v-model="draftBody"
+                rows="6"
+                placeholder="커뮤니티와 나눌 이야기를 적어 주세요."
+              />
+            </template>
+          </ClientOnly>
+          <small
+            >{{ draftBody.length.toLocaleString('ko-KR') }} / 20,000자 · WYSIWYG와 Markdown 모드를
+            사용할 수 있어요.</small
+          >
+        </div>
         <NuxtTurnstile
           v-if="turnstile.siteKey"
+          :key="turnstileKey"
           v-model="turnstileToken"
           :options="{ sitekey: turnstile.siteKey }"
         />
         <div>
           <button
             class="primary-button"
-            :disabled="creating || (!!turnstile.siteKey && !turnstileToken)"
+            :disabled="
+              creating ||
+              !draftTitle.trim() ||
+              !draftCategory ||
+              !draftBody.trim() ||
+              draftBody.length > 20000 ||
+              (!!turnstile.siteKey && !turnstileToken)
+            "
           >
             {{ creating ? '등록 중…' : '게시글 등록' }}</button
           ><button type="button" class="secondary-button" @click="showComposer = false">
@@ -240,7 +299,7 @@ function time(value: string | null) {
           loading ? '불러오는 중…' : hasMore ? '더 많은 이야기 보기 ↓' : '모든 이야기를 불러왔어요'
         }}
       </button>
-      <NuxtLink class="back-link" to="/">← 커뮤니티 홈</NuxtLink>
+      <NuxtLink class="back-link" to="/">← 전체 홈</NuxtLink>
     </main>
   </div>
 </template>

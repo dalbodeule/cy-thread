@@ -33,19 +33,26 @@ export default defineEventHandler(async (event) => {
     sql`exists (select 1 from ${posts} inner join ${threads} on ${posts.threadId} = ${threads.id} where ${threads.forumId} = ${forum.id} and ${posts.authorUserId} = ${users.id} and ${posts.isDeleted} = 0 and ${threads.isDeleted} = 0)`
   )!;
   const filters = [participation];
-  if (query) filters.push(or(like(users.name, `%${query}%`), like(users.email, `%${query}%`))!);
+  if (query)
+    filters.push(
+      or(
+        like(users.name, `%${query}%`),
+        like(users.email, `%${query}%`),
+        like(users.contactEmail, `%${query}%`)
+      )!
+    );
 
   const rows = await db
     .select({
       id: users.id,
       name: users.name,
-      email: users.email,
+      email: sql<string | null>`coalesce(${users.email}, ${users.contactEmail})`,
       avatarUrl: users.avatarUrl,
       createdAt: users.createdAt,
       isOwner: sql<boolean>`${users.id} = ${forum.ownerUserId}`,
       isAdmin: sql<boolean>`exists (select 1 from ${forumAdmins} where ${forumAdmins.forumId} = ${forum.id} and ${forumAdmins.userId} = ${users.id} and ${forumAdmins.role} in ('owner', 'admin'))`,
       isModerator: sql<boolean>`exists (select 1 from ${forumAdmins} where ${forumAdmins.forumId} = ${forum.id} and ${forumAdmins.userId} = ${users.id} and ${forumAdmins.role} in ('owner', 'admin', 'mod'))`,
-      isBanned: sql<boolean>`exists (select 1 from ${forumBans} where ${forumBans.forumId} = ${forum.id} and ${forumBans.userId} = ${users.id})`,
+      isBanned: sql<boolean>`exists (select 1 from ${forumBans} where ${forumBans.forumId} = ${forum.id} and ${forumBans.userId} = ${users.id} and (${forumBans.expiresAt} is null or ${forumBans.expiresAt} > ${Date.now()}))`,
     })
     .from(users)
     .where(and(...filters))

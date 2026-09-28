@@ -33,6 +33,11 @@ const {
   public: { turnstile },
 } = useRuntimeConfig();
 const token = ref('');
+const turnstileKey = ref(0);
+function resetTurnstile() {
+  token.value = '';
+  turnstileKey.value += 1;
+}
 const draft = ref('');
 const reportReason = ref('spam');
 const reportDetails = ref('');
@@ -45,7 +50,13 @@ const editingPostId = ref<number | null>(null);
 const editingPostBody = ref('');
 const replyTo = ref<{ id: number; author: string | null; depth: number } | null>(null);
 const categories = ref<Category[]>([]);
-const detail = ref<Detail | null>(null);
+const { data: initialDetail } = await useFetch<Detail>(
+  () =>
+    `/api/forums/${encodeURIComponent(String(route.params.slug))}/threads/${Number(route.params.threadId)}`,
+  { key: `thread-${String(route.params.slug)}-${String(route.params.threadId)}` }
+);
+if (!initialDetail.value) throw createError({ statusCode: 404, statusMessage: 'Thread not found' });
+const detail = ref<Detail | null>(initialDetail.value);
 const error = ref('');
 const sending = ref(false);
 const slug = computed(() => String(route.params.slug));
@@ -53,6 +64,32 @@ const threadId = computed(() => Number(route.params.threadId));
 const forumPath = computed(() => `/forums/${encodeURIComponent(slug.value)}`);
 const api = (path = '') =>
   `/api/forums/${encodeURIComponent(slug.value)}/threads/${threadId.value}${path}`;
+const seoTitle = computed(() =>
+  detail.value ? `${detail.value.title} | mori.space` : '게시글 | mori.space'
+);
+const seoDescription = computed(
+  () =>
+    (detail.value?.replies[0]?.markdown || '')
+      .replace(/[#*_>`\[\]()]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 155) || 'mori.space 커뮤니티 게시글'
+);
+const canonical = computed(
+  () =>
+    `https://community.mori.space/forums/${encodeURIComponent(slug.value)}/threads/${threadId.value}`
+);
+useSeoMeta({
+  title: seoTitle,
+  description: seoDescription,
+  ogTitle: seoTitle,
+  ogDescription: seoDescription,
+  ogType: 'article',
+  ogUrl: canonical,
+  twitterTitle: seoTitle,
+  twitterDescription: seoDescription,
+});
+useHead(() => ({ link: [{ rel: 'canonical', href: canonical.value }] }));
 async function load() {
   try {
     const [loaded, loadedCategories] = await Promise.all([
@@ -82,7 +119,7 @@ async function reply() {
       body: { body: draft.value, parentPostId: replyTo.value?.id, turnstileToken: token.value },
     });
     draft.value = '';
-    token.value = '';
+    resetTurnstile();
     replyTo.value = null;
     await load();
   } catch {
@@ -148,7 +185,7 @@ async function reportPost(postId: number) {
     });
     reportPostId.value = null;
     reportDetails.value = '';
-    token.value = '';
+    resetTurnstile();
     error.value = '댓글 신고를 운영진에게 전달했어요.';
   } catch {
     error.value = '댓글 신고를 접수하지 못했어요.';
@@ -167,7 +204,7 @@ async function report() {
     });
     reportOpen.value = false;
     reportDetails.value = '';
-    token.value = '';
+    resetTurnstile();
     error.value = '신고를 운영진에게 전달했어요.';
   } catch {
     error.value = '신고를 접수하지 못했어요.';
@@ -207,18 +244,8 @@ onMounted(load);
 </script>
 
 <template>
-  <div class="page-shell">
-    <header class="page-topbar">
-      <NuxtLink class="brand" to="/"
-        ><span class="brand-mark">c<span>y</span></span
-        ><span class="brand-word">thread<span class="brand-dot">.</span></span></NuxtLink
-      >
-      <nav class="page-nav">
-        <NuxtLink :to="`${forumPath}/threads`">이야기 목록</NuxtLink
-        ><NuxtLink :to="`${forumPath}/admin`">운영 관리</NuxtLink>
-      </nav>
-      <NuxtLink class="text-button" to="/login">로그인</NuxtLink>
-    </header>
+  <div class="page-shell forum-page" :data-forum-slug="slug">
+    <ForumTopbar :slug="slug" />
     <main class="page-content page-detail">
       <div class="page-breadcrumb">
         <NuxtLink :to="`${forumPath}/threads`">이야기 목록</NuxtLink><span> / 게시글</span>
@@ -325,12 +352,14 @@ onMounted(load);
               rows="2"
               placeholder="추가 설명 (선택)"
             /><NuxtTurnstile
-              v-if="turnstile.siteKey"
+              v-if="turnstile.siteKey && reportPostId === post.id"
+              :key="turnstileKey"
               v-model="token"
               :options="{ sitekey: turnstile.siteKey }"
             />
             <div>
-              <button class="secondary-button">신고 접수</button
+              <button class="secondary-button" :disabled="!!turnstile.siteKey && !token">
+                신고 접수</button
               ><button type="button" class="post-text-action" @click="reportPostId = null">
                 취소
               </button>
@@ -356,7 +385,8 @@ onMounted(load);
             placeholder="대화에 참여해 보세요."
             aria-label="댓글 내용"
           /><NuxtTurnstile
-            v-if="turnstile.siteKey"
+            v-if="turnstile.siteKey && reportPostId === null && !reportOpen"
+            :key="turnstileKey"
             v-model="token"
             :options="{ sitekey: turnstile.siteKey }"
           /><button
@@ -381,7 +411,8 @@ onMounted(load);
               rows="3"
               placeholder="추가 설명 (선택)"
             /><NuxtTurnstile
-              v-if="turnstile.siteKey"
+              v-if="turnstile.siteKey && reportPostId === null && reportOpen"
+              :key="turnstileKey"
               v-model="token"
               :options="{ sitekey: turnstile.siteKey }"
             /><button class="secondary-button" :disabled="!!turnstile.siteKey && !token">

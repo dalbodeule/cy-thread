@@ -13,6 +13,8 @@ export const forumBans = sqliteTable(
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     reason: text('reason'),
+    duration: text('duration').notNull().default('permanent'),
+    expiresAt: integer('expires_at', { mode: 'timestamp_ms' }),
     createdAt: integer('created_at', { mode: 'timestamp_ms' })
       .notNull()
       .default(sql`(unixepoch() * 1000)`),

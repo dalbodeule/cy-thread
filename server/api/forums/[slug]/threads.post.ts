@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, gt, isNull, or } from 'drizzle-orm';
 import { categories, forumBans, forums, posts, threads } from '~~/server/db/schema';
 import useDrizzle from '~~/server/utils/useDrizzle';
 import linkInlineAttachments from '~~/server/utils/linkInlineAttachments';
@@ -55,7 +55,7 @@ export default defineEventHandler(async (event) => {
       where: and(eq(categories.forumId, forum.id), eq(categories.slug, categorySlug)),
     }),
     db.query.forumBans.findFirst({
-      where: and(eq(forumBans.forumId, forum.id), eq(forumBans.userId, authorUserId)),
+      where: and(eq(forumBans.forumId, forum.id), eq(forumBans.userId, authorUserId), or(isNull(forumBans.expiresAt), gt(forumBans.expiresAt, new Date()))),
     }),
   ]);
   if (!category)

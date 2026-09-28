@@ -15,6 +15,7 @@ const name = ref('');
 const categorySlug = ref('');
 const error = ref('');
 const notice = ref('');
+const moveTargets = ref<Record<number, number>>({});
 async function load() {
   try {
     categories.value = await $fetch<Category[]>(
@@ -52,17 +53,21 @@ async function save(category: Category) {
   }
 }
 async function remove(category: Category) {
-  if (
-    category.threadCount + category.deletedThreadCount ||
-    !window.confirm(`“${category.name}” 카테고리를 삭제할까요?`)
-  )
+  const moveToCategoryId = moveTargets.value[category.id];
+  if (category.threadCount + category.deletedThreadCount && !moveToCategoryId) {
+    error.value = '기존 게시글을 이동할 카테고리를 선택해 주세요.';
     return;
+  }
+  if (!window.confirm(`“${category.name}” 카테고리를 삭제하고 기존 게시글을 이동할까요?`)) return;
   try {
-    await $fetch(api(`/categories/${category.id}`), { method: 'DELETE' });
-    notice.value = '카테고리를 삭제했어요.';
+    await $fetch(api(`/categories/${category.id}`), {
+      method: 'DELETE',
+      body: { moveToCategoryId },
+    });
+    notice.value = '카테고리를 삭제하고 기존 게시글을 이동했어요.';
     await load();
   } catch {
-    error.value = '글이나 숨김 기록이 있는 카테고리는 삭제할 수 없어요.';
+    error.value = '카테고리를 삭제하지 못했어요. 이동 대상을 확인해 주세요.';
   }
 }
 watch(slug, () => void load());
@@ -70,18 +75,8 @@ onMounted(load);
 </script>
 
 <template>
-  <div class="page-shell">
-    <header class="page-topbar">
-      <NuxtLink class="brand" to="/"
-        ><span class="brand-mark">c<span>y</span></span
-        ><span class="brand-word">thread<span class="brand-dot">.</span></span></NuxtLink
-      >
-      <nav class="page-nav">
-        <NuxtLink :to="`${forumPath}/admin`">운영 관리</NuxtLink
-        ><NuxtLink :to="`${forumPath}/reports`">신고함</NuxtLink>
-      </nav>
-      <NuxtLink class="text-button" to="/login">계정</NuxtLink>
-    </header>
+  <div class="page-shell forum-page" :data-forum-slug="slug">
+    <ForumTopbar :slug="slug" />
     <main class="page-content">
       <div class="page-breadcrumb">
         <NuxtLink :to="`${forumPath}/admin`">운영 관리</NuxtLink><span> / 카테고리 관리</span>
@@ -90,7 +85,7 @@ onMounted(load);
         <div>
           <p class="section-kicker">DISCUSSION TOPICS</p>
           <h1>카테고리 관리</h1>
-          <p>대화 주제를 만들고 이름과 주소를 관리합니다.</p>
+          <p>Forum 관리자가 게시글 모음을 만들고, 삭제할 때 기존 게시글을 이동합니다.</p>
         </div>
       </section>
       <p v-if="error" class="page-alert" role="alert">{{ error }}</p>
@@ -123,11 +118,26 @@ onMounted(load);
               · 숨김 {{ category.deletedThreadCount }}개</span
             ></small
           >
+          <label v-if="category.threadCount + category.deletedThreadCount"
+            ><span>삭제 시 게시글 이동</span
+            ><select v-model.number="moveTargets[category.id]">
+              <option :value="undefined">이동 대상 선택</option>
+              <option
+                v-for="target in categories.filter((item) => item.id !== category.id)"
+                :key="target.id"
+                :value="target.id"
+              >
+                {{ target.name }}
+              </option>
+            </select></label
+          >
           <div>
             <button class="secondary-button" @click="save(category)">저장</button
             ><button
               class="danger-button"
-              :disabled="category.threadCount + category.deletedThreadCount > 0"
+              :disabled="
+                category.threadCount + category.deletedThreadCount > 0 && !moveTargets[category.id]
+              "
               @click="remove(category)"
             >
               삭제

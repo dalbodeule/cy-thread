@@ -72,18 +72,8 @@ function date(value: string) {
 </script>
 
 <template>
-  <div class="page-shell">
-    <header class="page-topbar">
-      <NuxtLink class="brand" to="/"
-        ><span class="brand-mark">c<span>y</span></span
-        ><span class="brand-word">thread<span class="brand-dot">.</span></span></NuxtLink
-      >
-      <nav class="page-nav">
-        <NuxtLink :to="`${forumPath}/threads`">이야기 목록</NuxtLink
-        ><NuxtLink :to="`${forumPath}/admin`">운영 관리</NuxtLink>
-      </nav>
-      <NuxtLink class="text-button" to="/login">계정</NuxtLink>
-    </header>
+  <div class="page-shell forum-page" :data-forum-slug="slug">
+    <ForumTopbar :slug="slug" />
     <main class="page-content">
       <div class="page-breadcrumb">
         <NuxtLink :to="`${forumPath}/admin`">운영 관리</NuxtLink><span> / 신고함</span>

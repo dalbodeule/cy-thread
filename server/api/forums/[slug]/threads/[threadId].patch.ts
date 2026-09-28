@@ -1,6 +1,7 @@
 import { and, asc, eq, isNull } from 'drizzle-orm';
 import { categories, forumAdmins, forums, posts, threads } from '~~/server/db/schema';
 import useDrizzle from '~~/server/utils/useDrizzle';
+import isGlobalAdmin from '~~/server/utils/isGlobalAdmin';
 import linkInlineAttachments from '~~/server/utils/linkInlineAttachments';
 
 function escapeHtml(value: string) {
@@ -66,6 +67,7 @@ export default defineEventHandler(async (event) => {
   const isAuthor = thread.authorUserId === userId;
   const moderator =
     forum.ownerUserId === userId ||
+    (await isGlobalAdmin(db, userId)) ||
     Boolean(
       await db.query.forumAdmins.findFirst({
         where: and(eq(forumAdmins.forumId, forum.id), eq(forumAdmins.userId, userId)),

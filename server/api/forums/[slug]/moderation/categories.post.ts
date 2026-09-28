@@ -24,7 +24,10 @@ export default defineEventHandler(async (event) => {
   const db = useDrizzle(event.context.cloudflare.env.DB);
   const forum = await db.query.forums.findFirst({ where: eq(forums.slug, slug) });
   if (!forum) throw createError({ statusCode: 404, statusMessage: 'Community not found' });
-  await requireForumModerator(event, forum.id);
+  const actor = await requireForumModerator(event, forum.id);
+  if (!['global', 'owner', 'admin'].includes(actor.role)) {
+    throw createError({ statusCode: 403, statusMessage: 'Forum admin access is required' });
+  }
   const [category] = await db
     .insert(categories)
     .values({

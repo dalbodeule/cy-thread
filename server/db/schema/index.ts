@@ -9,12 +9,16 @@ import { forumFollowers } from './forumFollowers';
 import { forumBans } from './forumBans';
 import { categories } from './categories';
 import { categoryAdmins } from './categoryAdmins';
+import { forumRequests } from './forumRequests';
+import { featuredCategories } from './featuredCategories';
 import { threads } from './threads';
 import { posts } from './posts';
 import { attachments } from './attachments';
 import { sessions } from './sessions';
 import { threadBookmarks } from './threadBookmarks';
 import { reports } from './reports';
+import { userSuspensions } from './userSuspensions';
+import { mailCampaigns, mailOutbox } from './mail';
 
 export {
   users,
@@ -25,12 +29,17 @@ export {
   forumBans,
   categories,
   categoryAdmins,
+  forumRequests,
+  featuredCategories,
   threads,
   posts,
   attachments,
   sessions,
   threadBookmarks,
   reports,
+  userSuspensions,
+  mailCampaigns,
+  mailOutbox,
 };
 
 // 개별 relations
@@ -141,12 +150,17 @@ const tables = {
   forumBans,
   categories,
   categoryAdmins,
+  forumRequests,
+  featuredCategories,
   threads,
   posts,
   attachments,
   sessions,
   threadBookmarks,
   reports,
+  userSuspensions,
+  mailCampaigns,
+  mailOutbox,
 };
 
 const relationsAll = [

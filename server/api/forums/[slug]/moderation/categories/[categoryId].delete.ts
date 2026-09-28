@@ -6,13 +6,18 @@ import requireForumModerator from '~~/server/utils/requireForumModerator';
 export default defineEventHandler(async (event) => {
   const slug = getRouterParam(event, 'slug');
   const categoryId = Number(getRouterParam(event, 'categoryId'));
+  const body = await readBody<{ moveToCategoryId?: unknown }>(event);
+  const moveToCategoryId = Number(body?.moveToCategoryId);
   if (!slug || !Number.isInteger(categoryId) || categoryId < 1) {
     throw createError({ statusCode: 400, statusMessage: 'Invalid community or category' });
   }
   const db = useDrizzle(event.context.cloudflare.env.DB);
   const forum = await db.query.forums.findFirst({ where: eq(forums.slug, slug) });
   if (!forum) throw createError({ statusCode: 404, statusMessage: 'Community not found' });
-  await requireForumModerator(event, forum.id);
+  const actor = await requireForumModerator(event, forum.id);
+  if (!['global', 'owner', 'admin'].includes(actor.role)) {
+    throw createError({ statusCode: 403, statusMessage: 'Forum admin access is required' });
+  }
   const category = await db.query.categories.findFirst({
     where: and(eq(categories.id, categoryId), eq(categories.forumId, forum.id)),
   });
@@ -22,12 +27,31 @@ export default defineEventHandler(async (event) => {
     .from(threads)
     .where(eq(threads.categoryId, categoryId))
     .limit(1);
-  if (thread)
-    throw createError({
-      statusCode: 409,
-      statusMessage: "Move or remove this category's threads before deleting it",
+  if (thread) {
+    if (
+      !Number.isInteger(moveToCategoryId) ||
+      moveToCategoryId < 1 ||
+      moveToCategoryId === categoryId
+    ) {
+      throw createError({
+        statusCode: 400,
+        statusMessage: 'Choose another category for existing posts',
+      });
+    }
+    const destination = await db.query.categories.findFirst({
+      where: and(eq(categories.id, moveToCategoryId), eq(categories.forumId, forum.id)),
     });
-
-  await db.delete(categories).where(eq(categories.id, categoryId));
-  return { id: categoryId, deleted: true };
+    if (!destination)
+      throw createError({ statusCode: 400, statusMessage: 'Destination category not found' });
+    await db.batch([
+      db
+        .update(threads)
+        .set({ categoryId: moveToCategoryId })
+        .where(eq(threads.categoryId, categoryId)),
+      db.delete(categories).where(eq(categories.id, categoryId)),
+    ]);
+  } else {
+    await db.delete(categories).where(eq(categories.id, categoryId));
+  }
+  return { id: categoryId, deleted: true, movedToCategoryId: thread ? moveToCategoryId : null };
 });

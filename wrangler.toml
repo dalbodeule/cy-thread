@@ -2,12 +2,33 @@ name = "community"
 main = "./.output/server/index.mjs"
 workers_dev = true
 compatibility_flags = [ "nodejs_compat" ]
-compatibility_date = "2025-09-15"
+compatibility_date = "2026-09-08"
 assets = { directory = "./.output/public/", binding = "ASSETS" }
 
+[triggers]
+crons = ["0 * * * *", "* * * * *"]
+
+[vars]
+MAIL_FROM_ADDRESS = "webmaster@mori.space"
+
+[[send_email]]
+name = "EMAIL"
+
 [observability]
+enabled = false
+head_sampling_rate = 1
+redact_query_string = false
+
+[observability.logs]
 enabled = true
 head_sampling_rate = 1
+invocation_logs = true
+persist = true
+
+[observability.traces]
+enabled = true
+head_sampling_rate = 1
+persist = true
 
 [[d1_databases]]
 binding = "DB"
@@ -74,3 +95,9 @@ namespace_id = "926092308"
 [ratelimits.simple]
 limit = 120
 period = 60
+
+[[routes]]
+pattern = "community.mori.space"
+custom_domain = true
+enabled = true
+zone_name = "mori.space"

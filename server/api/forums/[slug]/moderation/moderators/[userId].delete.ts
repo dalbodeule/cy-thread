@@ -13,7 +13,7 @@ export default defineEventHandler(async (event) => {
   const forum = await db.query.forums.findFirst({ where: eq(forums.slug, slug) });
   if (!forum) throw createError({ statusCode: 404, statusMessage: 'Community not found' });
   const actor = await requireForumModerator(event, forum.id);
-  if (actor.role !== 'owner' && actor.role !== 'admin') {
+  if (!['global', 'owner', 'admin'].includes(actor.role)) {
     throw createError({
       statusCode: 403,
       statusMessage: 'Admin access is required to remove moderators',
@@ -26,7 +26,7 @@ export default defineEventHandler(async (event) => {
     where: and(eq(forumAdmins.forumId, forum.id), eq(forumAdmins.userId, userId)),
   });
   if (!target) throw createError({ statusCode: 404, statusMessage: 'Moderator not found' });
-  if (target.role === 'admin' && actor.role !== 'owner') {
+  if (target.role === 'admin' && actor.role !== 'owner' && actor.role !== 'global') {
     throw createError({ statusCode: 403, statusMessage: 'Only the owner can remove an admin' });
   }
   await db

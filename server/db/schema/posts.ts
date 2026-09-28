@@ -28,5 +28,6 @@ export const posts = sqliteTable(
   (table) => ({
     threadCreated: index('posts_thread_created_idx').on(table.threadId, table.createdAt),
     parentCreated: index('posts_parent_created_idx').on(table.parentPostId, table.createdAt),
+    authorCreated: index('posts_author_created_idx').on(table.authorUserId, table.createdAt),
   })
 );

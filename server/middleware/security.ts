@@ -1,4 +1,7 @@
 import { getMethod, getRequestHeader, getRequestURL, setResponseHeader } from 'h3';
+import { and, desc, eq, gt, isNull, or } from 'drizzle-orm';
+import { userSuspensions, users } from '~~/server/db/schema';
+import useDrizzle from '~~/server/utils/useDrizzle';
 
 const mutatingMethods = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 const maxApiBodyBytes = 1024 * 1024;
@@ -38,7 +41,9 @@ export default defineEventHandler(async (event) => {
   const method = getMethod(event);
   const isMutation = path.startsWith('/api/') && mutatingMethods.has(method);
   const isPublicThreadRead =
-    method === 'GET' && /^\/api\/forums\/[^/]+\/threads(?:\/\d+)?$/.test(path);
+    method === 'GET' &&
+    (/^\/api\/forums\/[^/]+\/threads(?:\/\d+)?$/.test(path) ||
+      ['/api/forums', '/api/categories', '/api/featured-categories'].includes(path));
   if (!isMutation && !isPublicThreadRead) return;
 
   if (isMutation) {
@@ -68,6 +73,30 @@ export default defineEventHandler(async (event) => {
 
   const session = await getUserSession(event);
   const userId = Number(session.user?.id);
+  if (isMutation && path !== '/api/auth/logout' && Number.isInteger(userId) && userId > 0) {
+    const db = useDrizzle(event.context.cloudflare.env.DB);
+    if (path !== '/api/account/email') {
+      const account = await db.query.users.findFirst({ where: eq(users.id, userId) });
+      if (account && !account.email && !account.contactEmail) {
+        throw createError({ statusCode: 403, statusMessage: 'Email address is required' });
+      }
+    }
+    const suspension = await db.query.userSuspensions.findFirst({
+      where: and(
+        eq(userSuspensions.userId, userId),
+        isNull(userSuspensions.revokedAt),
+        or(isNull(userSuspensions.expiresAt), gt(userSuspensions.expiresAt, new Date()))
+      ),
+      orderBy: desc(userSuspensions.id),
+    });
+    if (suspension) {
+      throw createError({
+        statusCode: 403,
+        statusMessage: 'Account is suspended',
+        data: { reason: suspension.reason, expiresAt: suspension.expiresAt?.toISOString() ?? null },
+      });
+    }
+  }
   let rateLimitKey: string;
   if (Number.isInteger(userId) && userId > 0) {
     rateLimitKey = `user:${userId}`;
@@ -95,7 +124,7 @@ export default defineEventHandler(async (event) => {
     return;
   }
   if (!allowed) {
-    setResponseHeader(event, 'Retry-After', '60');
+    setResponseHeader(event, 'Retry-After', 60);
     throw createError({ statusCode: 429, statusMessage: 'Too many requests. Try again shortly.' });
   }
 });

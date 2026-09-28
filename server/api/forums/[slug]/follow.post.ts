@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, gt, isNull, or } from 'drizzle-orm';
 import { forumBans, forumFollowers, forums } from '~~/server/db/schema';
 import useDrizzle from '~~/server/utils/useDrizzle';
 
@@ -23,7 +23,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const ban = await db.query.forumBans.findFirst({
-    where: and(eq(forumBans.forumId, forum.id), eq(forumBans.userId, userId)),
+    where: and(eq(forumBans.forumId, forum.id), eq(forumBans.userId, userId), or(isNull(forumBans.expiresAt), gt(forumBans.expiresAt, new Date()))),
   });
   if (ban)
     throw createError({ statusCode: 403, statusMessage: 'You cannot follow this community' });
