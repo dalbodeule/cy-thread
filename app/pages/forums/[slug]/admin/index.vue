@@ -135,6 +135,8 @@ onMounted(load);
             ><span>▤</span><strong>이야기 목록</strong><small>게시글과 댓글 확인</small></NuxtLink
           ><NuxtLink :to="`${forumPath}/reports`"
             ><span>⚑</span><strong>신고함</strong><small>접수된 신고 검토</small></NuxtLink
+          ><NuxtLink :to="`${forumPath}/admin/logs`"
+            ><span>◷</span><strong>운영 기록</strong><small>조치·신고 이력</small></NuxtLink
           ><NuxtLink v-if="canManage" :to="`${forumPath}/admin/settings`"
             ><span>▣</span><strong>Forum 설정</strong><small>이름·아이콘·색상</small></NuxtLink
           ><NuxtLink v-if="canManage" :to="`${forumPath}/admin/categories`"

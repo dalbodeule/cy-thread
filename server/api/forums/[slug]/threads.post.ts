@@ -4,6 +4,9 @@ import useDrizzle from '~~/server/utils/useDrizzle';
 import linkInlineAttachments from '~~/server/utils/linkInlineAttachments';
 import verifyHuman from '~~/server/utils/verifyHuman';
 import { requireForumReadable } from '~~/server/utils/forumAccess';
+import { normalizeThreadTags } from '~~/server/utils/threadTags';
+import { findModerationKeyword, readForumAppearance } from '~~/server/utils/forumAppearance';
+import { normalizePollOptions, normalizeThreadFormat } from '~~/server/utils/threadFormat';
 
 function escapeHtml(value: string) {
   return value.replace(
@@ -30,11 +33,20 @@ export default defineEventHandler(async (event) => {
     title?: unknown;
     body?: unknown;
     categorySlug?: unknown;
+    tags?: unknown;
+    format?: unknown;
+    pollOptions?: unknown;
     turnstileToken?: unknown;
   }>(event);
   const title = typeof body?.title === 'string' ? body.title.trim() : '';
   const content = typeof body?.body === 'string' ? body.body.trim() : '';
   const categorySlug = typeof body?.categorySlug === 'string' ? body.categorySlug.trim() : '';
+  const tags = normalizeThreadTags(body?.tags);
+  const format = normalizeThreadFormat(body?.format);
+  const pollOptions = normalizePollOptions(body?.pollOptions);
+  if (format === 'poll' && pollOptions.length < 2) {
+    throw createError({ statusCode: 400, statusMessage: '투표 항목을 2개 이상 입력해 주세요.' });
+  }
   if (!title || title.length > 120 || !content || content.length > 20_000 || !categorySlug) {
     throw createError({
       statusCode: 400,
@@ -51,6 +63,16 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, statusMessage: 'Community not found' });
   }
   await requireForumReadable(event, forum);
+  const matchedKeyword = findModerationKeyword(
+    `${title}\n${content}`,
+    readForumAppearance(forum.settingsJson, forum.cssCustom).moderationKeywords
+  );
+  if (matchedKeyword) {
+    throw createError({
+      statusCode: 422,
+      statusMessage: '운영진 검토가 필요한 표현이 포함되어 있어 게시할 수 없습니다.',
+    });
+  }
 
   const [category, ban] = await Promise.all([
     db.query.categories.findFirst({
@@ -76,6 +98,9 @@ export default defineEventHandler(async (event) => {
       forumId: forum.id,
       categoryId: category.id,
       title,
+      tagsJson: JSON.stringify(tags),
+      format,
+      pollJson: JSON.stringify(format === 'poll' ? pollOptions : []),
       authorUserId,
       createdAt: now,
       lastPostAt: now,

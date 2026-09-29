@@ -11,7 +11,7 @@ type ForumBrandData = {
 const { data } = await useFetch<ForumBrandData>(
   () => `/api/forums/${encodeURIComponent(props.slug)}`,
   {
-    key: `forum-brand-${props.slug}`,
+    key: `forum-seo-${props.slug}`,
   }
 );
 const safeSlug = computed(() => (/^[a-z0-9-]+$/.test(props.slug) ? props.slug : ''));

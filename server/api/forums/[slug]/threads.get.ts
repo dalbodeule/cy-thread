@@ -1,7 +1,17 @@
 import { and, desc, eq, like, or, sql } from 'drizzle-orm';
-import { categories, forums, posts, threadBookmarks, threads, users } from '~~/server/db/schema';
+import {
+  categories,
+  forums,
+  posts,
+  threadBookmarks,
+  threads,
+  userBlocks,
+  users,
+} from '~~/server/db/schema';
 import useDrizzle from '~~/server/utils/useDrizzle';
 import { requireForumReadable } from '~~/server/utils/forumAccess';
+import { parseThreadTags } from '~~/server/utils/threadTags';
+import { parsePollOptions } from '~~/server/utils/threadFormat';
 
 export default defineEventHandler(async (event) => {
   const session = await getUserSession(event);
@@ -29,6 +39,13 @@ export default defineEventHandler(async (event) => {
   const limit = Math.min(50, Math.max(1, Number(getQuery(event).limit) || 20));
   const offset = Math.max(0, Number(getQuery(event).offset) || 0);
   const filters = [eq(threads.forumId, forum.id), eq(threads.isDeleted, false)];
+  if (Number.isInteger(viewerId) && viewerId > 0) {
+    filters.push(sql`not exists (
+      select 1 from ${userBlocks}
+      where ${userBlocks.blockerUserId} = ${viewerId}
+        and ${userBlocks.blockedUserId} = ${threads.authorUserId}
+    )`);
+  }
   if (categorySlug) filters.push(eq(categories.slug, categorySlug));
   if (pinnedOnly) filters.push(eq(threads.isPinned, true));
   if (lockedOnly) filters.push(eq(threads.isLocked, true));
@@ -53,6 +70,9 @@ export default defineEventHandler(async (event) => {
     .select({
       id: threads.id,
       title: threads.title,
+      tagsJson: threads.tagsJson,
+      format: threads.format,
+      pollJson: threads.pollJson,
       category: categories.name,
       categorySlug: categories.slug,
       author: users.name,
@@ -85,6 +105,8 @@ export default defineEventHandler(async (event) => {
 
   return result.map((thread) => ({
     ...thread,
+    tags: parseThreadTags(thread.tagsJson),
+    pollOptions: parsePollOptions(thread.pollJson),
     isBookmarked: Boolean(thread.isBookmarked),
   }));
 });

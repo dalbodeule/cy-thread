@@ -9,6 +9,8 @@ export type ForumAppearance = {
   welcomeMessage: string;
   commentAccess: 'guest' | 'members' | 'forum_members';
   membershipQuestions: string[];
+  moderationKeywords: string[];
+  resourceLinks: Array<{ title: string; url: string }>;
 };
 
 const defaultAppearance: ForumAppearance = {
@@ -22,6 +24,8 @@ const defaultAppearance: ForumAppearance = {
   welcomeMessage: '',
   commentAccess: 'members',
   membershipQuestions: [],
+  moderationKeywords: [],
+  resourceLinks: [],
 };
 const color = /^#[0-9a-fA-F]{6}$/;
 const allowedVariables = new Set([
@@ -98,6 +102,29 @@ export function readForumAppearance(
         .filter(Boolean)
         .slice(0, 5)
     : [];
+  const moderationKeywords = Array.isArray(settings.moderationKeywords)
+    ? settings.moderationKeywords
+        .filter((item): item is string => typeof item === 'string')
+        .map((item) => item.trim().toLowerCase().slice(0, 80))
+        .filter(Boolean)
+        .slice(0, 50)
+    : [];
+  const resourceLinks = Array.isArray(settings.resourceLinks)
+    ? settings.resourceLinks
+        .filter((item): item is { title?: unknown; url?: unknown } =>
+          Boolean(item && typeof item === 'object')
+        )
+        .map((item) => ({
+          title: String(item.title || '')
+            .trim()
+            .slice(0, 80),
+          url: String(item.url || '')
+            .trim()
+            .slice(0, 500),
+        }))
+        .filter((item) => item.title && /^https?:\/\//i.test(item.url))
+        .slice(0, 10)
+    : [];
   return {
     description,
     iconText,
@@ -109,6 +136,8 @@ export function readForumAppearance(
     welcomeMessage,
     commentAccess,
     membershipQuestions,
+    moderationKeywords,
+    resourceLinks,
   };
 }
 
@@ -125,6 +154,8 @@ export function updateForumSettingsJson(
     | 'welcomeMessage'
     | 'commentAccess'
     | 'membershipQuestions'
+    | 'moderationKeywords'
+    | 'resourceLinks'
   >
 ) {
   let settings: Record<string, unknown> = {};
@@ -136,4 +167,9 @@ export function updateForumSettingsJson(
     /* Replace malformed settings. */
   }
   return JSON.stringify({ ...settings, ...appearance });
+}
+
+export function findModerationKeyword(text: string, keywords: string[]): string | null {
+  const normalized = text.toLocaleLowerCase();
+  return keywords.find((keyword) => keyword && normalized.includes(keyword)) || null;
 }

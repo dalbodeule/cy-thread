@@ -14,6 +14,7 @@ const forumPath = computed(() => {
       <nav aria-label="바닥글 메뉴">
         <NuxtLink to="/">홈</NuxtLink><NuxtLink to="/explore">카테고리</NuxtLink
         ><NuxtLink to="/forums/request">Forum 개설</NuxtLink
+        ><NuxtLink to="/policies">이용 정책</NuxtLink
         ><NuxtLink v-if="forumPath" :to="forumPath">Forum 게시글</NuxtLink>
       </nav>
       <a class="site-footer-contact" href="mailto:webmaster@mori.space"

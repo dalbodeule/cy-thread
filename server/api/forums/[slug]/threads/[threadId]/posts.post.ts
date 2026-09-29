@@ -1,10 +1,18 @@
 import { and, asc, eq, gt, isNull, or, sql } from 'drizzle-orm';
-import { forumBans, forums, notifications, posts, threads, users } from '~~/server/db/schema';
+import {
+  forumBans,
+  forums,
+  notifications,
+  posts,
+  threadSubscriptions,
+  threads,
+  users,
+} from '~~/server/db/schema';
 import useDrizzle from '~~/server/utils/useDrizzle';
 import linkInlineAttachments from '~~/server/utils/linkInlineAttachments';
 import verifyHuman from '~~/server/utils/verifyHuman';
 import { requireForumCommentAccess, requireForumReadable } from '~~/server/utils/forumAccess';
-import { readForumAppearance } from '~~/server/utils/forumAppearance';
+import { findModerationKeyword, readForumAppearance } from '~~/server/utils/forumAppearance';
 
 function escapeHtml(value: string) {
   return value.replace(
@@ -49,6 +57,13 @@ export default defineEventHandler(async (event) => {
   }
   await requireForumReadable(event, forum);
   const commentAccess = readForumAppearance(forum.settingsJson, forum.cssCustom).commentAccess;
+  const appearance = readForumAppearance(forum.settingsJson, forum.cssCustom);
+  if (findModerationKeyword(markdown, appearance.moderationKeywords)) {
+    throw createError({
+      statusCode: 422,
+      statusMessage: '운영진 검토가 필요한 표현이 포함되어 있어 댓글을 등록할 수 없습니다.',
+    });
+  }
   const viewer = await requireForumCommentAccess(event, forum, commentAccess);
   await verifyHuman(event, body?.turnstileToken);
   const authorUserId = viewer?.userId ?? null;
@@ -138,6 +153,13 @@ export default defineEventHandler(async (event) => {
     )
   );
   if (authorUserId) recipients.delete(authorUserId);
+  const subscribers = await db
+    .select({ userId: threadSubscriptions.userId })
+    .from(threadSubscriptions)
+    .where(eq(threadSubscriptions.threadId, threadId));
+  for (const subscriber of subscribers) {
+    if (Number(subscriber.userId) !== authorUserId) recipients.add(Number(subscriber.userId));
+  }
   const mentionNames = [...markdown.matchAll(/@([\p{L}\p{N}_-]{2,40})/gu)].map(
     (match) => match[1]!
   );

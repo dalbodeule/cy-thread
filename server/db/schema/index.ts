@@ -21,6 +21,13 @@ import { reports } from './reports';
 import { userSuspensions } from './userSuspensions';
 import { mailCampaigns, mailOutbox } from './mail';
 import { notifications } from './notifications';
+import { reactions } from './reactions';
+import { pollVotes } from './pollVotes';
+import { userBlocks } from './userBlocks';
+import { forumMutes } from './forumMutes';
+import { moderationLogs } from './moderationLogs';
+import { threadReads } from './threadReads';
+import { threadSubscriptions } from './threadSubscriptions';
 
 export {
   users,
@@ -44,6 +51,13 @@ export {
   mailCampaigns,
   mailOutbox,
   notifications,
+  reactions,
+  pollVotes,
+  userBlocks,
+  forumMutes,
+  moderationLogs,
+  threadReads,
+  threadSubscriptions,
 };
 
 // 개별 relations
@@ -58,6 +72,14 @@ export const usersRelations = relations(users, ({ many }) => ({
   sessions: many(sessions),
   threadBookmarks: many(threadBookmarks),
   submittedReports: many(reports),
+  reactions: many(reactions),
+  pollVotes: many(pollVotes),
+  blocksGiven: many(userBlocks, { relationName: 'blocksGiven' }),
+  blocksReceived: many(userBlocks, { relationName: 'blocksReceived' }),
+  forumMutes: many(forumMutes),
+  moderationLogs: many(moderationLogs),
+  threadReads: many(threadReads),
+  threadSubscriptions: many(threadSubscriptions),
 }));
 
 export const oauthAccountsRelations = relations(oauthAccounts, ({ one }) => ({
@@ -74,6 +96,8 @@ export const forumsRelations = relations(forums, ({ one, many }) => ({
   threads: many(threads),
   attachments: many(attachments),
   reports: many(reports),
+  forumMutes: many(forumMutes),
+  moderationLogs: many(moderationLogs),
 }));
 
 export const forumAdminsRelations = relations(forumAdmins, ({ one }) => ({
@@ -114,6 +138,9 @@ export const threadsRelations = relations(threads, ({ one, many }) => ({
   author: one(users, { fields: [threads.authorUserId], references: [users.id] }),
   posts: many(posts),
   bookmarks: many(threadBookmarks),
+  pollVotes: many(pollVotes),
+  threadReads: many(threadReads),
+  threadSubscriptions: many(threadSubscriptions),
 }));
 
 export const postsRelations = relations(posts, ({ one, many }) => ({
@@ -151,6 +178,50 @@ export const reportsRelations = relations(reports, ({ one }) => ({
   post: one(posts, { fields: [reports.postId], references: [posts.id] }),
 }));
 
+export const reactionsRelations = relations(reactions, ({ one }) => ({
+  user: one(users, { fields: [reactions.userId], references: [users.id] }),
+  thread: one(threads, { fields: [reactions.threadId], references: [threads.id] }),
+  post: one(posts, { fields: [reactions.postId], references: [posts.id] }),
+}));
+
+export const pollVotesRelations = relations(pollVotes, ({ one }) => ({
+  thread: one(threads, { fields: [pollVotes.threadId], references: [threads.id] }),
+  user: one(users, { fields: [pollVotes.userId], references: [users.id] }),
+}));
+
+export const userBlocksRelations = relations(userBlocks, ({ one }) => ({
+  blocker: one(users, {
+    fields: [userBlocks.blockerUserId],
+    references: [users.id],
+    relationName: 'blocksGiven',
+  }),
+  blocked: one(users, {
+    fields: [userBlocks.blockedUserId],
+    references: [users.id],
+    relationName: 'blocksReceived',
+  }),
+}));
+
+export const forumMutesRelations = relations(forumMutes, ({ one }) => ({
+  user: one(users, { fields: [forumMutes.userId], references: [users.id] }),
+  forum: one(forums, { fields: [forumMutes.forumId], references: [forums.id] }),
+}));
+
+export const moderationLogsRelations = relations(moderationLogs, ({ one }) => ({
+  forum: one(forums, { fields: [moderationLogs.forumId], references: [forums.id] }),
+  actor: one(users, { fields: [moderationLogs.actorUserId], references: [users.id] }),
+}));
+
+export const threadReadsRelations = relations(threadReads, ({ one }) => ({
+  thread: one(threads, { fields: [threadReads.threadId], references: [threads.id] }),
+  user: one(users, { fields: [threadReads.userId], references: [users.id] }),
+}));
+
+export const threadSubscriptionsRelations = relations(threadSubscriptions, ({ one }) => ({
+  thread: one(threads, { fields: [threadSubscriptions.threadId], references: [threads.id] }),
+  user: one(users, { fields: [threadSubscriptions.userId], references: [users.id] }),
+}));
+
 // 한 번에 export
 const tables = {
   users,
@@ -174,6 +245,13 @@ const tables = {
   mailCampaigns,
   mailOutbox,
   notifications,
+  reactions,
+  pollVotes,
+  userBlocks,
+  forumMutes,
+  moderationLogs,
+  threadReads,
+  threadSubscriptions,
 };
 
 const relationsAll = [
@@ -192,6 +270,13 @@ const relationsAll = [
   sessionsRelations,
   threadBookmarksRelations,
   reportsRelations,
+  reactionsRelations,
+  pollVotesRelations,
+  userBlocksRelations,
+  forumMutesRelations,
+  moderationLogsRelations,
+  threadReadsRelations,
+  threadSubscriptionsRelations,
 ] as const;
 
 export default {

@@ -15,6 +15,10 @@ export const threads = sqliteTable(
       .notNull()
       .references(() => categories.id, { onDelete: 'restrict' }),
     title: text('title').notNull(),
+    tagsJson: text('tags_json').notNull().default('[]'),
+    format: text('format').notNull().default('discussion'),
+    pollJson: text('poll_json').notNull().default('[]'),
+    acceptedPostId: integer('accepted_post_id'),
     authorUserId: integer('author_user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'restrict' }),

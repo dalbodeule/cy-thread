@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "check": "npm run typecheck && npm run lint && npx drizzle-kit check && npm run build",
+    "perf:baseline": "node scripts/perf-baseline.mjs",
     "db:generate": "drizzle-kit generate",
     "db:create": "wrangler d1 create community",
     "db:migrate:local": "wrangler d1 migrations apply community --local",

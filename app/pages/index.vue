@@ -102,6 +102,7 @@ useHead({ link: [{ rel: 'canonical', href: 'https://community.mori.space/' }] })
             <h2>Forum 둘러보기</h2>
             <p>관심 있는 커뮤니티를 선택해 이야기를 만나보세요.</p>
           </div>
+          <NuxtLink class="link-button" to="/search">전체 글 검색 ↗</NuxtLink>
           <span>{{ (forums || []).length }}개 Forum</span>
         </div>
         <label class="home-search"

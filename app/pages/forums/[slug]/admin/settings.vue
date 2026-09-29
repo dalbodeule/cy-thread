@@ -13,6 +13,8 @@ type Settings = {
   visibility: 'public' | 'private';
   commentAccess: 'guest' | 'members' | 'forum_members';
   membershipQuestions: string[];
+  moderationKeywords: string[];
+  resourceLinks: Array<{ title: string; url: string }>;
 };
 const route = useRoute();
 const slug = computed(() => String(route.params.slug));
@@ -32,6 +34,8 @@ const form = reactive<Settings>({
   visibility: 'public',
   commentAccess: 'members',
   membershipQuestions: [],
+  moderationKeywords: [],
+  resourceLinks: [],
 });
 const loading = ref(true);
 const saving = ref(false);
@@ -187,6 +191,37 @@ onMounted(load);
             placeholder="이 Forum에 오신 것을 환영합니다."
           />
         </label>
+        <label
+          >자동 검토 키워드(한 줄에 하나)<textarea
+            :value="form.moderationKeywords.join('\n')"
+            maxlength="4100"
+            placeholder="광고 링크\n도배 문구"
+            @input="
+              form.moderationKeywords = String(($event.target as HTMLTextAreaElement).value)
+                .split('\n')
+                .map((item) => item.trim())
+                .filter(Boolean)
+            "
+          /><small class="settings-help"
+            >일치하는 글과 댓글은 자동 삭제하지 않고 운영진 검토 대상으로 차단합니다.</small
+          ></label
+        >
+        <label
+          >운영 자료실 링크(한 줄에 `제목 | URL`)<textarea
+            :value="form.resourceLinks.map((item) => `${item.title} | ${item.url}`).join('\n')"
+            maxlength="6000"
+            placeholder="사용 안내 | https://example.com/guide"
+            @input="
+              form.resourceLinks = String(($event.target as HTMLTextAreaElement).value)
+                .split('\n')
+                .map((item) => item.split('|').map((part) => part.trim()))
+                .filter((item) => item[0] && item[1])
+                .map(([title, url]) => ({ title: title || '', url: url || '' }))
+            "
+          /><small class="settings-help"
+            >운영진이 지정한 FAQ·가이드 링크를 공개 Forum에 표시합니다.</small
+          ></label
+        >
         <label>사각 아이콘 글자<input v-model="form.iconText" required maxlength="2" /></label>
         <div class="setting-colors">
           <label>아이콘 배경색<input v-model="form.iconBackground" type="color" /></label>

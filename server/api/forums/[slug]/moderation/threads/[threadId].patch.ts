@@ -1,5 +1,5 @@
 import { and, eq } from 'drizzle-orm';
-import { forums, threads } from '~~/server/db/schema';
+import { forums, moderationLogs, threads } from '~~/server/db/schema';
 import useDrizzle from '~~/server/utils/useDrizzle';
 import requireForumModerator from '~~/server/utils/requireForumModerator';
 
@@ -20,7 +20,7 @@ export default defineEventHandler(async (event) => {
   const db = useDrizzle(event.context.cloudflare.env.DB);
   const forum = await db.query.forums.findFirst({ where: eq(forums.slug, slug) });
   if (!forum) throw createError({ statusCode: 404, statusMessage: 'Community not found' });
-  await requireForumModerator(event, forum.id);
+  const { userId } = await requireForumModerator(event, forum.id);
   const [thread] = await db
     .update(threads)
     .set(updates)
@@ -29,5 +29,14 @@ export default defineEventHandler(async (event) => {
     )
     .returning({ id: threads.id, isLocked: threads.isLocked, isPinned: threads.isPinned });
   if (!thread) throw createError({ statusCode: 404, statusMessage: 'Thread not found' });
+  for (const [key, value] of Object.entries(updates)) {
+    await db.insert(moderationLogs).values({
+      forumId: forum.id,
+      actorUserId: userId,
+      targetType: 'thread',
+      targetId: thread.id,
+      action: `${key}_${value ? 'on' : 'off'}`,
+    });
+  }
   return thread;
 });

@@ -1,5 +1,5 @@
 import { desc, eq, sql } from 'drizzle-orm';
-import { forums, notifications, users } from '~~/server/db/schema';
+import { forums, notifications, userBlocks, users } from '~~/server/db/schema';
 import useDrizzle from '~~/server/utils/useDrizzle';
 
 export default defineEventHandler(async (event) => {
@@ -21,12 +21,20 @@ export default defineEventHandler(async (event) => {
     .from(notifications)
     .leftJoin(users, eq(notifications.actorUserId, users.id))
     .leftJoin(forums, eq(notifications.forumId, forums.id))
-    .where(eq(notifications.userId, userId))
+    .where(
+      sql`${notifications.userId} = ${userId} and not exists (
+      select 1 from ${userBlocks}
+      where ${userBlocks.blockerUserId} = ${userId}
+        and ${userBlocks.blockedUserId} = ${notifications.actorUserId}
+    )`
+    )
     .orderBy(desc(notifications.createdAt))
     .limit(50);
-  const unread = await db
-    .select({ count: sql<number>`count(*)` })
-    .from(notifications)
-    .where(sql`${notifications.userId} = ${userId} AND ${notifications.readAt} IS NULL`);
+  const unread = await db.select({ count: sql<number>`count(*)` }).from(notifications)
+    .where(sql`${notifications.userId} = ${userId} AND ${notifications.readAt} IS NULL and not exists (
+      select 1 from ${userBlocks}
+      where ${userBlocks.blockerUserId} = ${userId}
+        and ${userBlocks.blockedUserId} = ${notifications.actorUserId}
+    )`);
   return { items: rows, unread: Number(unread[0]?.count || 0) };
 });

@@ -39,6 +39,19 @@ export default defineEventHandler(async (event) => {
   const membershipQuestions = Array.isArray(body?.membershipQuestions)
     ? body.membershipQuestions.filter((item): item is string => typeof item === 'string')
     : [];
+  const moderationKeywords = Array.isArray(body?.moderationKeywords)
+    ? body.moderationKeywords.filter((item): item is string => typeof item === 'string')
+    : [];
+  const resourceLinks = Array.isArray(body?.resourceLinks)
+    ? body.resourceLinks.filter((item): item is { title: string; url: string } =>
+        Boolean(
+          item &&
+          typeof item === 'object' &&
+          typeof item.title === 'string' &&
+          typeof item.url === 'string'
+        )
+      )
+    : [];
   if (
     name.length < 2 ||
     name.length > 60 ||
@@ -53,7 +66,17 @@ export default defineEventHandler(async (event) => {
     !visibility ||
     !commentAccess ||
     membershipQuestions.length > 5 ||
-    membershipQuestions.some((item) => item.trim().length < 3 || item.trim().length > 240)
+    membershipQuestions.some((item) => item.trim().length < 3 || item.trim().length > 240) ||
+    moderationKeywords.length > 50 ||
+    moderationKeywords.some((item) => item.trim().length < 2 || item.trim().length > 80) ||
+    resourceLinks.length > 10 ||
+    resourceLinks.some(
+      (item) =>
+        item.title.trim().length < 1 ||
+        item.title.trim().length > 80 ||
+        !/^https?:\/\//i.test(item.url.trim()) ||
+        item.url.trim().length > 500
+    )
   ) {
     throw createError({ statusCode: 400, statusMessage: 'Invalid Forum appearance settings' });
   }
@@ -76,6 +99,11 @@ export default defineEventHandler(async (event) => {
     welcomeMessage,
     commentAccess,
     membershipQuestions: membershipQuestions.map((item) => item.trim()),
+    moderationKeywords: moderationKeywords.map((item) => item.trim().toLowerCase()),
+    resourceLinks: resourceLinks.map((item) => ({
+      title: item.title.trim(),
+      url: item.url.trim(),
+    })),
   });
   await db
     .update(forums)

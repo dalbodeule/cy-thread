@@ -12,6 +12,26 @@ const error = ref('');
 const { data: bookmarks } = await useFetch<
   Array<{ id: number; title: string; forumSlug: string; forumName: string; category: string }>
 >('/api/account/bookmarks', { immediate: loggedIn.value });
+const { data: activity } = await useFetch<{
+  threads: Array<{
+    id: number;
+    title: string;
+    forumSlug: string;
+    forumName: string;
+    category: string;
+  }>;
+  posts: Array<{
+    id: number;
+    threadId: number;
+    threadTitle: string;
+    forumSlug: string;
+    forumName: string;
+  }>;
+}>('/api/account/activity', { immediate: loggedIn.value });
+const { data: myForums } = await useFetch<Array<{ id: number; slug: string; name: string }>>(
+  '/api/my-forums',
+  { immediate: loggedIn.value }
+);
 const { data: notifications, refresh: refreshNotifications } = await useFetch<{
   items: Array<{
     id: number;
@@ -152,6 +172,50 @@ useSeoMeta({ title: '프로필 | mori.space', robots: 'noindex, nofollow' });
         <section class="admin-panel">
           <div class="page-heading">
             <div>
+              <h2>내 Forum</h2>
+              <p>운영하거나 팔로우한 Forum입니다.</p>
+            </div>
+          </div>
+          <p v-if="!myForums?.length" class="page-empty">아직 연결된 Forum이 없어요.</p>
+          <NuxtLink
+            v-for="item in myForums"
+            :key="item.id"
+            class="page-thread-row"
+            :to="`/forums/${encodeURIComponent(item.slug)}/threads`"
+            ><strong>{{ item.name }}</strong
+            ><small>/{{ item.slug }}</small></NuxtLink
+          >
+        </section>
+        <section class="admin-panel">
+          <div class="page-heading">
+            <div>
+              <h2>내 활동</h2>
+              <p>작성한 게시글과 댓글을 다시 확인하세요.</p>
+            </div>
+          </div>
+          <p v-if="!activity?.threads.length && !activity?.posts.length" class="page-empty">
+            아직 작성한 글이나 댓글이 없어요.
+          </p>
+          <NuxtLink
+            v-for="item in activity?.threads"
+            :key="`thread-${item.id}`"
+            class="page-thread-row"
+            :to="`/forums/${encodeURIComponent(item.forumSlug)}/threads/${item.id}`"
+            ><strong>{{ item.title }}</strong
+            ><small>게시글 · {{ item.forumName }} · {{ item.category }}</small></NuxtLink
+          >
+          <NuxtLink
+            v-for="item in activity?.posts"
+            :key="`post-${item.id}`"
+            class="page-thread-row"
+            :to="`/forums/${encodeURIComponent(item.forumSlug)}/threads/${item.threadId}#post-${item.id}`"
+            ><strong>{{ item.threadTitle }}</strong
+            ><small>댓글 · {{ item.forumName }}</small></NuxtLink
+          >
+        </section>
+        <section class="admin-panel">
+          <div class="page-heading">
+            <div>
               <h2>저장한 글</h2>
               <p>나중에 다시 읽을 게시글입니다.</p>
             </div>
@@ -249,6 +313,11 @@ useSeoMeta({ title: '프로필 | mori.space', robots: 'noindex, nofollow' });
             {{ saving ? '저장 중…' : '저장' }}
           </button>
         </form>
+        <section class="admin-panel">
+          <h2>내 데이터</h2>
+          <p>계정 정보와 작성한 게시글·댓글·신고 기록을 JSON 파일로 내려받을 수 있어요.</p>
+          <a class="secondary-button" href="/api/account/export">데이터 내려받기</a>
+        </section>
       </div>
     </main>
   </div>

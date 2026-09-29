@@ -1,5 +1,5 @@
 import { and, eq } from 'drizzle-orm';
-import { forums, reports } from '~~/server/db/schema';
+import { forums, moderationLogs, reports } from '~~/server/db/schema';
 import useDrizzle from '~~/server/utils/useDrizzle';
 import requireForumModerator from '~~/server/utils/requireForumModerator';
 
@@ -29,5 +29,12 @@ export default defineEventHandler(async (event) => {
     .returning({ id: reports.id });
 
   if (!report) throw createError({ statusCode: 404, statusMessage: 'Open report not found' });
+  await db.insert(moderationLogs).values({
+    forumId: forum.id,
+    actorUserId: userId,
+    targetType: 'report',
+    targetId: report.id,
+    action: String(body.status),
+  });
   return { id: report.id, status: body.status };
 });

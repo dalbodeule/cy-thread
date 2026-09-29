@@ -5,6 +5,9 @@ const ToastEditor = defineAsyncComponent(
 type ThreadRow = {
   id: number;
   title: string;
+  tags: string[];
+  format: 'discussion' | 'question' | 'poll' | 'announcement';
+  pollOptions: string[];
   excerpt: string;
   category: string;
   categorySlug: string;
@@ -32,6 +35,7 @@ const { data: seoForum } = await useFetch<{
   iconColor: string;
   rules: string;
   welcomeMessage: string;
+  resourceLinks: Array<{ title: string; url: string }>;
   visibility: 'public' | 'private';
   membershipStatus: 'approved' | 'pending' | 'none' | 'anonymous';
   membershipQuestions: string[];
@@ -70,6 +74,28 @@ const { data: initialRows } = threadsFetch;
 const { data: initialCategories } = categoriesFetch;
 const followBusy = ref(false);
 const followError = ref('');
+const muted = ref(false);
+const muteBusy = ref(false);
+const { data: mutedForums } = await useFetch<Array<{ slug: string }>>('/api/account/mutes', {
+  key: `forum-mutes-${String(route.params.slug)}`,
+  immediate: loggedIn.value,
+});
+muted.value = Boolean(mutedForums.value?.some((item) => item.slug === slug.value));
+async function toggleMute() {
+  if (!loggedIn.value) return navigateTo('/login');
+  muteBusy.value = true;
+  try {
+    const result = await $fetch<{ muted: boolean }>('/api/account/mutes', {
+      method: 'POST',
+      body: { forumSlug: slug.value, muted: !muted.value },
+    });
+    muted.value = result.muted;
+  } catch {
+    followError.value = 'Forum 뮤트 상태를 변경하지 못했어요.';
+  } finally {
+    muteBusy.value = false;
+  }
+}
 async function toggleFollow() {
   if (!loggedIn.value) return navigateTo('/login');
   followBusy.value = true;
@@ -114,6 +140,9 @@ const showComposer = ref(route.query.compose === '1');
 const draftTitle = ref('');
 const draftBody = ref('');
 const draftCategory = ref('');
+const draftTags = ref('');
+const draftFormat = ref<'discussion' | 'question' | 'poll' | 'announcement'>('discussion');
+const draftPollOptions = ref('');
 const turnstileToken = ref('');
 const turnstileKey = ref(0);
 function resetTurnstile() {
@@ -214,11 +243,17 @@ async function createThread() {
         title: draftTitle.value,
         body: draftBody.value,
         categorySlug: draftCategory.value || categories.value[0]?.slug,
+        tags: draftTags.value,
+        format: draftFormat.value,
+        pollOptions: draftPollOptions.value,
         turnstileToken: turnstileToken.value,
       },
     });
     draftTitle.value = '';
     draftBody.value = '';
+    draftTags.value = '';
+    draftFormat.value = 'discussion';
+    draftPollOptions.value = '';
     localStorage.removeItem(draftKey.value);
     resetTurnstile();
     showComposer.value = false;
@@ -255,6 +290,9 @@ onMounted(() => {
       draftTitle.value = saved.title || '';
       draftBody.value = saved.body || '';
       draftCategory.value = saved.category || '';
+      draftTags.value = saved.tags || '';
+      draftFormat.value = saved.format || 'discussion';
+      draftPollOptions.value = saved.pollOptions || '';
       if (draftTitle.value || draftBody.value) showComposer.value = true;
     }
   } catch {
@@ -262,7 +300,7 @@ onMounted(() => {
   }
   if (!categories.value.length) void loadCategories();
 });
-watch([draftTitle, draftBody, draftCategory], () => {
+watch([draftTitle, draftBody, draftCategory, draftTags, draftFormat, draftPollOptions], () => {
   if (!import.meta.client) return;
   clearTimeout(draftTimer);
   draftTimer = setTimeout(() => {
@@ -273,6 +311,9 @@ watch([draftTitle, draftBody, draftCategory], () => {
           title: draftTitle.value,
           body: draftBody.value,
           category: draftCategory.value,
+          tags: draftTags.value,
+          format: draftFormat.value,
+          pollOptions: draftPollOptions.value,
         })
       );
     else localStorage.removeItem(draftKey.value);
@@ -350,8 +391,36 @@ function time(value: string | null) {
             }}
           </button>
           <span>팔로우하면 이 Forum의 멤버로 참여할 수 있어요.</span>
+          <button
+            v-if="loggedIn"
+            type="button"
+            class="post-text-action"
+            :disabled="muteBusy"
+            @click="toggleMute"
+          >
+            {{ muted ? 'Forum 뮤트 해제' : 'Forum 뮤트' }}
+          </button>
         </div>
         <p v-if="followError" class="page-alert" role="alert">{{ followError }}</p>
+      </section>
+      <section
+        v-if="seoForum?.resourceLinks?.length"
+        class="forum-resources"
+        aria-labelledby="forum-resources-title"
+      >
+        <div>
+          <p class="section-kicker">RESOURCES</p>
+          <h2 id="forum-resources-title">운영 자료실</h2>
+          <p>운영진이 공유한 안내와 참고 자료를 확인하세요.</p>
+        </div>
+        <ul class="forum-resource-list">
+          <li v-for="resource in seoForum.resourceLinks" :key="resource.url">
+            <a :href="resource.url" target="_blank" rel="noreferrer noopener">
+              <span>{{ resource.title }}</span
+              ><span aria-hidden="true">↗</span>
+            </a>
+          </li>
+        </ul>
       </section>
       <section v-if="isPrivateBlocked" class="admin-panel membership-panel">
         <h2>비공개 Forum 가입</h2>
@@ -389,7 +458,7 @@ function time(value: string | null) {
             <h2>게시글</h2>
             <p>카테고리를 골라 대화를 살펴보거나 새 글을 작성하세요.</p>
           </div>
-          <button class="primary-button" @click="showComposer = !showComposer">
+          <button type="button" class="primary-button" @click="showComposer = !showComposer">
             {{ showComposer ? '목록 보기' : '＋ 새 게시글' }}
           </button>
         </section>
@@ -404,6 +473,30 @@ function time(value: string | null) {
           <label
             >제목<input v-model="draftTitle" required maxlength="120" placeholder="이야기 제목"
           /></label>
+          <label
+            >태그 <small>(쉼표로 구분, 최대 5개)</small
+            ><input
+              v-model="draftTags"
+              maxlength="150"
+              placeholder="예: 질문, 팁"
+              aria-label="게시글 태그"
+          /></label>
+          <label
+            >게시글 형식<select v-model="draftFormat">
+              <option value="discussion">일반 이야기</option>
+              <option value="question">질문</option>
+              <option value="poll">투표</option>
+              <option value="announcement">공지</option>
+            </select></label
+          >
+          <label v-if="draftFormat === 'poll'"
+            >투표 항목(한 줄에 하나)<textarea
+              v-model="draftPollOptions"
+              rows="4"
+              maxlength="1000"
+              aria-label="투표 항목"
+            />
+          </label>
           <div class="forum-editor-field">
             <strong>내용</strong>
             <ClientOnly>
@@ -454,16 +547,26 @@ function time(value: string | null) {
         <section class="list-controls" aria-label="목록 필터">
           <label class="page-search"
             ><span>⌕</span
-            ><input v-model="search" type="search" placeholder="제목이나 내용 검색" /></label
+            ><input
+              v-model="search"
+              type="search"
+              placeholder="제목이나 내용 검색"
+              aria-label="게시글 검색" /></label
           ><select v-model="filter" aria-label="이야기 상태">
             <option value="all">모든 게시글</option>
             <option value="pinned">고정된 게시글</option>
             <option value="locked">댓글 잠금</option>
           </select>
           <div class="page-tabs">
-            <button :class="{ active: sort === 'activity' }" @click="sort = 'activity'">
+            <button
+              type="button"
+              :class="{ active: sort === 'activity' }"
+              @click="sort = 'activity'"
+            >
               활동순</button
-            ><button :class="{ active: sort === 'latest' }" @click="sort = 'latest'">최신순</button>
+            ><button type="button" :class="{ active: sort === 'latest' }" @click="sort = 'latest'">
+              최신순
+            </button>
           </div>
         </section>
         <p v-if="error" class="page-alert" role="alert">{{ error }}</p>
@@ -494,6 +597,10 @@ function time(value: string | null) {
             <div class="page-thread-main">
               <div class="page-row-meta">
                 <span class="thread-category tag-green">{{ row.category }}</span
+                ><span v-for="tag in row.tags" :key="tag" class="thread-tag">#{{ tag }}</span
+                ><span v-if="row.format === 'question'" class="page-pinned">질문</span
+                ><span v-if="row.format === 'poll'" class="page-pinned">투표</span
+                ><span v-if="row.format === 'announcement'" class="page-pinned">공지</span
                 ><span v-if="row.isPinned" class="page-pinned">고정</span
                 ><span v-if="row.isLocked" class="page-pinned">댓글 잠금</span
                 ><time>{{ time(row.lastPostAt || row.createdAt) }}</time>

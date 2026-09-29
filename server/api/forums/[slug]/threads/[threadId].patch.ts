@@ -4,6 +4,8 @@ import useDrizzle from '~~/server/utils/useDrizzle';
 import isGlobalAdmin from '~~/server/utils/isGlobalAdmin';
 import linkInlineAttachments from '~~/server/utils/linkInlineAttachments';
 import { requireForumReadable } from '~~/server/utils/forumAccess';
+import { normalizeThreadTags } from '~~/server/utils/threadTags';
+import { normalizePollOptions, normalizeThreadFormat } from '~~/server/utils/threadFormat';
 
 function escapeHtml(value: string) {
   return value.replace(
@@ -24,7 +26,15 @@ export default defineEventHandler(async (event) => {
   const userId = Number(session.user.id);
   const slug = getRouterParam(event, 'slug');
   const threadId = Number(getRouterParam(event, 'threadId'));
-  const body = await readBody<{ title?: unknown; body?: unknown; categorySlug?: unknown }>(event);
+  const body = await readBody<{
+    title?: unknown;
+    body?: unknown;
+    categorySlug?: unknown;
+    tags?: unknown;
+    format?: unknown;
+    pollOptions?: unknown;
+    acceptedPostId?: unknown;
+  }>(event);
   if (
     !slug ||
     !Number.isInteger(userId) ||
@@ -38,6 +48,19 @@ export default defineEventHandler(async (event) => {
   const markdown = typeof body?.body === 'string' ? body.body.trim() : undefined;
   const categorySlug =
     typeof body?.categorySlug === 'string' ? body.categorySlug.trim() : undefined;
+  const tags = body?.tags === undefined ? undefined : normalizeThreadTags(body.tags);
+  const format = body?.format === undefined ? undefined : normalizeThreadFormat(body.format);
+  const pollOptions =
+    body?.pollOptions === undefined ? undefined : normalizePollOptions(body.pollOptions);
+  const acceptedPostId =
+    body?.acceptedPostId === null
+      ? null
+      : body?.acceptedPostId === undefined
+        ? undefined
+        : Number(body.acceptedPostId);
+  if (format === 'poll' && (pollOptions?.length || 0) < 2) {
+    throw createError({ statusCode: 400, statusMessage: '투표 항목을 2개 이상 입력해 주세요.' });
+  }
   if (title !== undefined && (!title || title.length > 120)) {
     throw createError({ statusCode: 400, statusMessage: 'Title must contain 1 to 120 characters' });
   }
@@ -47,7 +70,14 @@ export default defineEventHandler(async (event) => {
       statusMessage: 'Body must contain 1 to 20000 characters',
     });
   }
-  if (title === undefined && markdown === undefined && categorySlug === undefined) {
+  if (
+    title === undefined &&
+    markdown === undefined &&
+    categorySlug === undefined &&
+    tags === undefined &&
+    format === undefined &&
+    acceptedPostId === undefined
+  ) {
     throw createError({ statusCode: 400, statusMessage: 'Provide at least one field to update' });
   }
 
@@ -74,10 +104,36 @@ export default defineEventHandler(async (event) => {
   if (thread.isLocked && !moderator)
     throw createError({ statusCode: 423, statusMessage: 'This thread is locked' });
 
-  const updates: { title?: string; categoryId?: number; updatedAt: Date } = {
+  const updates: {
+    title?: string;
+    categoryId?: number;
+    tagsJson?: string;
+    format?: string;
+    pollJson?: string;
+    acceptedPostId?: number | null;
+    updatedAt: Date;
+  } = {
     updatedAt: new Date(),
   };
   if (title !== undefined) updates.title = title;
+  if (tags !== undefined) updates.tagsJson = JSON.stringify(tags);
+  if (format !== undefined) {
+    updates.format = format;
+    updates.pollJson = JSON.stringify(format === 'poll' ? pollOptions || [] : []);
+  }
+  if (acceptedPostId !== undefined) {
+    if (acceptedPostId !== null) {
+      const acceptedPost = await db.query.posts.findFirst({
+        where: and(
+          eq(posts.id, acceptedPostId),
+          eq(posts.threadId, threadId),
+          eq(posts.isDeleted, false)
+        ),
+      });
+      if (!acceptedPost) throw createError({ statusCode: 400, statusMessage: 'Invalid answer' });
+    }
+    updates.acceptedPostId = acceptedPostId;
+  }
   if (categorySlug !== undefined) {
     const category = await db.query.categories.findFirst({
       where: and(eq(categories.forumId, forum.id), eq(categories.slug, categorySlug)),
