@@ -6,6 +6,7 @@ import { oauthAccounts } from './oauthAccounts';
 import { forums } from './forums';
 import { forumAdmins } from './forumAdmins';
 import { forumFollowers } from './forumFollowers';
+import { forumMembers } from './forumMembers';
 import { forumBans } from './forumBans';
 import { categories } from './categories';
 import { categoryAdmins } from './categoryAdmins';
@@ -19,6 +20,7 @@ import { threadBookmarks } from './threadBookmarks';
 import { reports } from './reports';
 import { userSuspensions } from './userSuspensions';
 import { mailCampaigns, mailOutbox } from './mail';
+import { notifications } from './notifications';
 
 export {
   users,
@@ -26,6 +28,7 @@ export {
   forums,
   forumAdmins,
   forumFollowers,
+  forumMembers,
   forumBans,
   categories,
   categoryAdmins,
@@ -40,6 +43,7 @@ export {
   userSuspensions,
   mailCampaigns,
   mailOutbox,
+  notifications,
 };
 
 // 개별 relations
@@ -64,6 +68,7 @@ export const forumsRelations = relations(forums, ({ one, many }) => ({
   owner: one(users, { fields: [forums.ownerUserId], references: [users.id] }),
   admins: many(forumAdmins),
   followers: many(forumFollowers),
+  members: many(forumMembers),
   bans: many(forumBans),
   categories: many(categories),
   threads: many(threads),
@@ -79,6 +84,12 @@ export const forumAdminsRelations = relations(forumAdmins, ({ one }) => ({
 export const forumFollowersRelations = relations(forumFollowers, ({ one }) => ({
   forum: one(forums, { fields: [forumFollowers.forumId], references: [forums.id] }),
   user: one(users, { fields: [forumFollowers.userId], references: [users.id] }),
+}));
+
+export const forumMembersRelations = relations(forumMembers, ({ one }) => ({
+  forum: one(forums, { fields: [forumMembers.forumId], references: [forums.id] }),
+  user: one(users, { fields: [forumMembers.userId], references: [users.id] }),
+  reviewer: one(users, { fields: [forumMembers.reviewedByUserId], references: [users.id] }),
 }));
 
 export const forumBansRelations = relations(forumBans, ({ one }) => ({
@@ -147,6 +158,7 @@ const tables = {
   forums,
   forumAdmins,
   forumFollowers,
+  forumMembers,
   forumBans,
   categories,
   categoryAdmins,
@@ -161,6 +173,7 @@ const tables = {
   userSuspensions,
   mailCampaigns,
   mailOutbox,
+  notifications,
 };
 
 const relationsAll = [
@@ -169,6 +182,7 @@ const relationsAll = [
   forumsRelations,
   forumAdminsRelations,
   forumFollowersRelations,
+  forumMembersRelations,
   forumBansRelations,
   categoriesRelations,
   categoryAdminsRelations,

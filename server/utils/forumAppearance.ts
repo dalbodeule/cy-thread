@@ -5,6 +5,10 @@ export type ForumAppearance = {
   iconColor: string;
   cssCustom: string;
   allowDarkMode: boolean;
+  rules: string;
+  welcomeMessage: string;
+  commentAccess: 'guest' | 'members' | 'forum_members';
+  membershipQuestions: string[];
 };
 
 const defaultAppearance: ForumAppearance = {
@@ -14,6 +18,10 @@ const defaultAppearance: ForumAppearance = {
   iconColor: '#ffffff',
   cssCustom: '',
   allowDarkMode: true,
+  rules: '',
+  welcomeMessage: '',
+  commentAccess: 'members',
+  membershipQuestions: [],
 };
 const color = /^#[0-9a-fA-F]{6}$/;
 const allowedVariables = new Set([
@@ -74,14 +82,49 @@ export function readForumAppearance(
     /* Ignore invalid legacy CSS. */
   }
   const allowDarkMode = typeof settings.allowDarkMode === 'boolean' ? settings.allowDarkMode : true;
-  return { description, iconText, iconBackground, iconColor, cssCustom: safeCss, allowDarkMode };
+  const rules = typeof settings.rules === 'string' ? settings.rules.slice(0, 5000) : '';
+  const welcomeMessage =
+    typeof settings.welcomeMessage === 'string' ? settings.welcomeMessage.slice(0, 1000) : '';
+  const commentAccess =
+    settings.commentAccess === 'guest' ||
+    settings.commentAccess === 'members' ||
+    settings.commentAccess === 'forum_members'
+      ? settings.commentAccess
+      : defaultAppearance.commentAccess;
+  const membershipQuestions = Array.isArray(settings.membershipQuestions)
+    ? settings.membershipQuestions
+        .filter((item): item is string => typeof item === 'string')
+        .map((item) => item.trim().slice(0, 240))
+        .filter(Boolean)
+        .slice(0, 5)
+    : [];
+  return {
+    description,
+    iconText,
+    iconBackground,
+    iconColor,
+    cssCustom: safeCss,
+    allowDarkMode,
+    rules,
+    welcomeMessage,
+    commentAccess,
+    membershipQuestions,
+  };
 }
 
 export function updateForumSettingsJson(
   existing: string | null,
   appearance: Pick<
     ForumAppearance,
-    'description' | 'iconText' | 'iconBackground' | 'iconColor' | 'allowDarkMode'
+    | 'description'
+    | 'iconText'
+    | 'iconBackground'
+    | 'iconColor'
+    | 'allowDarkMode'
+    | 'rules'
+    | 'welcomeMessage'
+    | 'commentAccess'
+    | 'membershipQuestions'
   >
 ) {
   let settings: Record<string, unknown> = {};

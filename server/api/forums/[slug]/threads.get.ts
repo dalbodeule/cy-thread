@@ -1,6 +1,7 @@
 import { and, desc, eq, like, or, sql } from 'drizzle-orm';
 import { categories, forums, posts, threadBookmarks, threads, users } from '~~/server/db/schema';
 import useDrizzle from '~~/server/utils/useDrizzle';
+import { requireForumReadable } from '~~/server/utils/forumAccess';
 
 export default defineEventHandler(async (event) => {
   const session = await getUserSession(event);
@@ -11,9 +12,10 @@ export default defineEventHandler(async (event) => {
   if (!slug) throw createError({ statusCode: 400, statusMessage: 'Forum slug is required' });
 
   const forum = await db.query.forums.findFirst({ where: eq(forums.slug, slug) });
-  if (!forum || forum.visibility !== 'public') {
+  if (!forum) {
     throw createError({ statusCode: 404, statusMessage: 'Community not found' });
   }
+  await requireForumReadable(event, forum);
 
   const query = String(getQuery(event).q ?? '')
     .trim()

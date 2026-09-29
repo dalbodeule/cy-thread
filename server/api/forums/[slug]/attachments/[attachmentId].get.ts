@@ -1,6 +1,7 @@
 import { and, eq, isNull, or } from 'drizzle-orm';
 import { attachments, forums, posts } from '~~/server/db/schema';
 import useDrizzle from '~~/server/utils/useDrizzle';
+import { requireForumReadable } from '~~/server/utils/forumAccess';
 
 export default defineEventHandler(async (event) => {
   const slug = getRouterParam(event, 'slug');
@@ -10,6 +11,9 @@ export default defineEventHandler(async (event) => {
   }
 
   const db = useDrizzle(event.context.cloudflare.env.DB);
+  const forum = await db.query.forums.findFirst({ where: eq(forums.slug, slug) });
+  if (!forum) throw createError({ statusCode: 404, statusMessage: 'Image not found' });
+  await requireForumReadable(event, forum);
   const session = await getUserSession(event);
   const viewerId = Number(session.user?.id);
   const currentUserId = Number.isInteger(viewerId) && viewerId > 0 ? viewerId : -1;
@@ -26,7 +30,6 @@ export default defineEventHandler(async (event) => {
     .where(
       and(
         eq(forums.slug, slug),
-        eq(forums.visibility, 'public'),
         eq(attachments.id, attachmentId),
         isNull(attachments.deletedAt),
         or(
@@ -38,7 +41,7 @@ export default defineEventHandler(async (event) => {
     .limit(1);
   if (!attachment) throw createError({ statusCode: 404, statusMessage: 'Image not found' });
 
-  const isPublished = attachment.postId !== null;
+  const isPublished = attachment.postId !== null && forum.visibility === 'public';
   const cacheControl = isPublished ? 'public, max-age=60, s-maxage=3600' : 'private, no-store';
   setResponseHeader(event, 'Content-Type', attachment.mime);
   setResponseHeader(event, 'Cache-Control', cacheControl);

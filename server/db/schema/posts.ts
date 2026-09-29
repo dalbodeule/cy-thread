@@ -14,9 +14,9 @@ export const posts = sqliteTable(
       onDelete: 'cascade',
     }),
     depth: integer('depth').notNull().default(0),
-    authorUserId: integer('author_user_id')
-      .notNull()
-      .references(() => users.id, { onDelete: 'restrict' }),
+    authorUserId: integer('author_user_id').references(() => users.id, { onDelete: 'set null' }),
+    guestIp: text('guest_ip'),
+    guestName: text('guest_name'),
     markdown: text('markdown').notNull(),
     htmlSanitized: text('html_sanitized').notNull(),
     createdAt: integer('created_at', { mode: 'timestamp_ms' })

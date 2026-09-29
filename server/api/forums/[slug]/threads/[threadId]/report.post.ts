@@ -2,6 +2,7 @@ import { and, eq } from 'drizzle-orm';
 import { forums, reports, threads } from '~~/server/db/schema';
 import useDrizzle from '~~/server/utils/useDrizzle';
 import verifyHuman from '~~/server/utils/verifyHuman';
+import { requireForumReadable } from '~~/server/utils/forumAccess';
 
 const allowedReasons = ['spam', 'harassment', 'unsafe', 'other'] as const;
 
@@ -38,15 +39,10 @@ export default defineEventHandler(async (event) => {
     db.query.forums.findFirst({ where: eq(forums.slug, slug) }),
     db.query.threads.findFirst({ where: eq(threads.id, threadId) }),
   ]);
-  if (
-    !forum ||
-    forum.visibility !== 'public' ||
-    !thread ||
-    thread.forumId !== forum.id ||
-    thread.isDeleted
-  ) {
+  if (!forum || !thread || thread.forumId !== forum.id || thread.isDeleted) {
     throw createError({ statusCode: 404, statusMessage: 'Thread not found' });
   }
+  await requireForumReadable(event, forum);
   if (thread.authorUserId === reporterUserId) {
     throw createError({ statusCode: 400, statusMessage: 'You cannot report your own thread' });
   }

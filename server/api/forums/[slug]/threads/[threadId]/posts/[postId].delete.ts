@@ -2,6 +2,7 @@ import { and, asc, eq, isNull } from 'drizzle-orm';
 import { forumAdmins, forums, posts, threads } from '~~/server/db/schema';
 import useDrizzle from '~~/server/utils/useDrizzle';
 import isGlobalAdmin from '~~/server/utils/isGlobalAdmin';
+import { requireForumReadable } from '~~/server/utils/forumAccess';
 
 export default defineEventHandler(async (event) => {
   const session = await requireUserSession(event);
@@ -34,15 +35,9 @@ export default defineEventHandler(async (event) => {
       .orderBy(asc(posts.createdAt), asc(posts.id))
       .limit(1),
   ]);
-  if (
-    !forum ||
-    forum.visibility !== 'public' ||
-    !thread ||
-    thread.forumId !== forum.id ||
-    thread.isDeleted ||
-    !post
-  )
+  if (!forum || !thread || thread.forumId !== forum.id || thread.isDeleted || !post)
     throw createError({ statusCode: 404, statusMessage: 'Post not found' });
+  await requireForumReadable(event, forum);
   if (starter[0]?.id === postId)
     throw createError({
       statusCode: 409,

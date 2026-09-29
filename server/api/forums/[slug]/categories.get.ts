@@ -1,6 +1,7 @@
 import { asc, eq, sql } from 'drizzle-orm';
 import { categories, forums, threads } from '~~/server/db/schema';
 import useDrizzle from '~~/server/utils/useDrizzle';
+import { requireForumReadable } from '~~/server/utils/forumAccess';
 
 export default defineEventHandler(async (event) => {
   const db = useDrizzle(event.context.cloudflare.env.DB);
@@ -8,9 +9,10 @@ export default defineEventHandler(async (event) => {
   if (!slug) throw createError({ statusCode: 400, statusMessage: 'Forum slug is required' });
 
   const forum = await db.query.forums.findFirst({ where: eq(forums.slug, slug) });
-  if (!forum || forum.visibility !== 'public') {
+  if (!forum) {
     throw createError({ statusCode: 404, statusMessage: 'Community not found' });
   }
+  await requireForumReadable(event, forum);
 
   return db
     .select({

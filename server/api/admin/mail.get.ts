@@ -1,4 +1,4 @@
-import { eq, desc, sql } from 'drizzle-orm';
+import { desc, sql } from 'drizzle-orm';
 import { mailCampaigns, mailOutbox } from '~~/server/db/schema';
 import requireGlobalAdmin from '~~/server/utils/requireGlobalAdmin';
 

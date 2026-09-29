@@ -26,6 +26,19 @@ export default defineEventHandler(async (event) => {
   const iconColor = typeof body?.iconColor === 'string' ? body.iconColor : '';
   const cssInput = typeof body?.cssCustom === 'string' ? body.cssCustom : '';
   const allowDarkMode = body?.allowDarkMode;
+  const rules = typeof body?.rules === 'string' ? body.rules.trim() : '';
+  const welcomeMessage = typeof body?.welcomeMessage === 'string' ? body.welcomeMessage.trim() : '';
+  const visibility =
+    body?.visibility === 'private' ? 'private' : body?.visibility === 'public' ? 'public' : '';
+  const commentAccess =
+    body?.commentAccess === 'guest' ||
+    body?.commentAccess === 'members' ||
+    body?.commentAccess === 'forum_members'
+      ? body.commentAccess
+      : '';
+  const membershipQuestions = Array.isArray(body?.membershipQuestions)
+    ? body.membershipQuestions.filter((item): item is string => typeof item === 'string')
+    : [];
   if (
     name.length < 2 ||
     name.length > 60 ||
@@ -34,7 +47,13 @@ export default defineEventHandler(async (event) => {
     [...iconText].length > 2 ||
     !/^#[0-9a-fA-F]{6}$/.test(iconBackground) ||
     !/^#[0-9a-fA-F]{6}$/.test(iconColor) ||
-    typeof allowDarkMode !== 'boolean'
+    typeof allowDarkMode !== 'boolean' ||
+    rules.length > 5000 ||
+    welcomeMessage.length > 1000 ||
+    !visibility ||
+    !commentAccess ||
+    membershipQuestions.length > 5 ||
+    membershipQuestions.some((item) => item.trim().length < 3 || item.trim().length > 240)
   ) {
     throw createError({ statusCode: 400, statusMessage: 'Invalid Forum appearance settings' });
   }
@@ -53,12 +72,19 @@ export default defineEventHandler(async (event) => {
     iconBackground,
     iconColor,
     allowDarkMode,
+    rules,
+    welcomeMessage,
+    commentAccess,
+    membershipQuestions: membershipQuestions.map((item) => item.trim()),
   });
-  await db.update(forums).set({ name, settingsJson, cssCustom }).where(eq(forums.id, forum.id));
+  await db
+    .update(forums)
+    .set({ name, visibility, settingsJson, cssCustom })
+    .where(eq(forums.id, forum.id));
   return {
     name,
     slug,
-    visibility: forum.visibility,
+    visibility,
     ...readForumAppearance(settingsJson, cssCustom),
   };
 });

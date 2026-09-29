@@ -12,11 +12,15 @@ type Detail = {
   createdAt: string;
   isLocked: boolean;
   isPinned: boolean;
+  isBookmarked: boolean;
   canModerate: boolean;
   isAuthor: boolean;
+  commentAccess: 'guest' | 'members' | 'forum_members';
+  canComment: boolean;
   replies: Array<{
     id: number;
     author: string | null;
+    guestName: string | null;
     authorAvatarUrl: string | null;
     authorId: number;
     markdown: string;
@@ -41,6 +45,10 @@ function resetTurnstile() {
   turnstileKey.value += 1;
 }
 const draft = ref('');
+const guestName = ref('');
+const draftKey = computed(
+  () => `mori-draft:reply:${String(route.params.slug)}:${String(route.params.threadId)}`
+);
 const reportReason = ref('spam');
 const reportDetails = ref('');
 const reportOpen = ref(false);
@@ -51,6 +59,7 @@ const editingCategory = ref('');
 const editingPostId = ref<number | null>(null);
 const editingPostBody = ref('');
 const replyTo = ref<{ id: number; author: string | null; depth: number } | null>(null);
+const bookmarked = ref(false);
 const categories = ref<Category[]>([]);
 const { data: initialDetail } = await useFetch<Detail>(
   () =>
@@ -59,6 +68,7 @@ const { data: initialDetail } = await useFetch<Detail>(
 );
 if (!initialDetail.value) throw createError({ statusCode: 404, statusMessage: 'Thread not found' });
 const detail = ref<Detail | null>(initialDetail.value);
+bookmarked.value = Boolean(initialDetail.value?.isBookmarked);
 const error = ref('');
 const sending = ref(false);
 const slug = computed(() => String(route.params.slug));
@@ -72,7 +82,7 @@ const seoTitle = computed(() =>
 const seoDescription = computed(
   () =>
     (detail.value?.replies[0]?.markdown || '')
-      .replace(/[#*_>`\[\]()]/g, ' ')
+      .replace(/[#*_>`[\]()]/g, ' ')
       .replace(/\s+/g, ' ')
       .trim()
       .slice(0, 155) || 'mori.space 커뮤니티 게시글'
@@ -101,6 +111,7 @@ async function load() {
       ),
     ]);
     detail.value = loaded;
+    bookmarked.value = Boolean(loaded.isBookmarked);
     categories.value = loadedCategories;
     error.value = '';
     if (route.hash) {
@@ -111,16 +122,33 @@ async function load() {
     error.value = '게시글을 찾을 수 없거나 불러오지 못했어요.';
   }
 }
-async function reply() {
+async function toggleBookmark() {
   if (!loggedIn.value) return navigateTo('/login');
+  bookmarked.value = !bookmarked.value;
+  try {
+    await $fetch(api('/bookmark'), { method: 'POST', body: { bookmarked: bookmarked.value } });
+  } catch {
+    bookmarked.value = !bookmarked.value;
+    error.value = '저장 상태를 변경하지 못했어요.';
+  }
+}
+async function reply() {
+  if (!detail.value) return;
+  if (detail.value.commentAccess !== 'guest' && !loggedIn.value) return navigateTo('/login');
   if (!draft.value.trim()) return;
   sending.value = true;
   try {
     await $fetch(api('/posts'), {
       method: 'POST',
-      body: { body: draft.value, parentPostId: replyTo.value?.id, turnstileToken: token.value },
+      body: {
+        body: draft.value,
+        guestName: guestName.value,
+        parentPostId: replyTo.value?.id,
+        turnstileToken: token.value,
+      },
     });
     draft.value = '';
+    localStorage.removeItem(draftKey.value);
     resetTurnstile();
     replyTo.value = null;
     await load();
@@ -243,6 +271,18 @@ async function removeThread() {
   }
 }
 onMounted(load);
+onMounted(() => {
+  try {
+    draft.value = localStorage.getItem(draftKey.value) || '';
+  } catch {
+    /* Ignore unavailable storage. */
+  }
+});
+watch(draft, (value) => {
+  if (!import.meta.client) return;
+  if (value) localStorage.setItem(draftKey.value, value);
+  else localStorage.removeItem(draftKey.value);
+});
 </script>
 
 <template>
@@ -259,7 +299,22 @@ onMounted(load);
           ><span v-if="detail.isPinned" class="page-pinned">고정</span
           ><time>{{ new Date(detail.createdAt).toLocaleString('ko-KR') }}</time>
         </div>
-        <h1>{{ detail.title }}</h1>
+        <div class="detail-title-row">
+          <h1>{{ detail.title }}</h1>
+          <div class="detail-title-actions">
+            <button class="secondary-button" type="button" @click="toggleBookmark">
+              {{ bookmarked ? '★ 저장됨' : '☆ 저장' }}
+            </button>
+            <button
+              v-if="detail.canModerate || detail.isAuthor"
+              class="secondary-button"
+              type="button"
+              @click="beginThreadEdit"
+            >
+              제목·카테고리 수정
+            </button>
+          </div>
+        </div>
         <div v-if="editingThread" class="thread-edit-form">
           <label>제목<input v-model="editingTitle" maxlength="120" /></label>
           <label
@@ -274,15 +329,6 @@ onMounted(load);
             ><button class="secondary-button" @click="editingThread = false">취소</button>
           </div>
         </div>
-        <div v-if="detail.canModerate || detail.isAuthor" class="post-action-row thread-actions">
-          <button
-            v-if="detail.isAuthor || detail.canModerate"
-            class="secondary-button"
-            @click="beginThreadEdit"
-          >
-            제목·카테고리 수정
-          </button>
-        </div>
         <div
           v-for="post in detail.replies"
           :id="`post-${post.id}`"
@@ -291,8 +337,8 @@ onMounted(load);
           :class="`post-depth-${post.depth}`"
         >
           <div class="detail-page-author">
-            <UserAvatar :src="post.authorAvatarUrl" :name="post.author" /><span
-              ><strong>{{ post.author || '멤버' }}</strong
+            <UserAvatar :src="post.authorAvatarUrl" :name="post.author || post.guestName" /><span
+              ><strong>{{ post.author || post.guestName || '비회원' }}</strong
               ><small
                 >{{ new Date(post.createdAt).toLocaleString('ko-KR')
                 }}<template v-if="post.updatedAt"> · 수정됨</template></small
@@ -375,12 +421,14 @@ onMounted(load);
             {{ detail.isLocked ? '댓글 잠금 해제' : '댓글 잠금' }}</button
           ><button class="danger-button" @click="removeThread">게시글 숨기기</button>
         </div>
-        <div v-if="!detail.isLocked" class="detail-page-reply">
+        <div v-if="!detail.isLocked && detail.canComment" class="detail-page-reply">
           <h2>
-            {{ replyTo ? `${replyTo.author || '멤버'}님에게 답글` : '댓글 남기기'
+            {{ replyTo ? `${replyTo.author || '비회원'}님에게 답글` : '댓글 남기기'
             }}<button v-if="replyTo" class="post-text-action" @click="replyTo = null">취소</button>
           </h2>
-          <textarea
+          <label v-if="detail.commentAccess === 'guest' && !loggedIn" class="guest-name-field"
+            >이름(선택)<input v-model="guestName" maxlength="40" placeholder="비회원" /></label
+          ><textarea
             v-model="draft"
             rows="5"
             placeholder="대화에 참여해 보세요."
@@ -398,6 +446,14 @@ onMounted(load);
             {{ sending ? '등록 중…' : '댓글 등록' }}
           </button>
         </div>
+        <p v-else-if="!detail.isLocked" class="page-empty">
+          {{
+            detail.commentAccess === 'forum_members'
+              ? 'Forum 가입 승인 후 댓글을 작성할 수 있어요.'
+              : '로그인 후 댓글을 작성할 수 있어요.'
+          }}
+          <NuxtLink v-if="!loggedIn" class="back-link" to="/login">로그인</NuxtLink>
+        </p>
         <div v-if="!detail.isAuthor" class="report-page-inline">
           <button class="report-link" @click="reportOpen = !reportOpen">이 게시글 신고하기</button>
           <form v-if="reportOpen" class="report-page-form" @submit.prevent="report">

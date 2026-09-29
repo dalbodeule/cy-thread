@@ -9,6 +9,24 @@ const name = ref(user.value?.name || '');
 const saving = ref(false);
 const notice = ref('');
 const error = ref('');
+const { data: bookmarks } = await useFetch<
+  Array<{ id: number; title: string; forumSlug: string; forumName: string; category: string }>
+>('/api/account/bookmarks', { immediate: loggedIn.value });
+const { data: notifications, refresh: refreshNotifications } = await useFetch<{
+  items: Array<{
+    id: number;
+    message: string;
+    actorName: string | null;
+    threadId: number | null;
+    forumSlug: string | null;
+    readAt: string | null;
+  }>;
+  unread: number;
+}>('/api/account/notifications', { immediate: loggedIn.value });
+async function markNotificationsRead() {
+  await $fetch('/api/account/notifications', { method: 'PATCH', body: { all: true } });
+  await refreshNotifications();
+}
 type AvatarSettings = {
   source: string;
   currentUrl: string | null;
@@ -98,6 +116,56 @@ useSeoMeta({ title: '프로필 | mori.space', robots: 'noindex, nofollow' });
       <div v-else>
         <p v-if="error" class="page-alert" role="alert">{{ error }}</p>
         <p v-if="notice" class="page-success" role="status">{{ notice }}</p>
+        <section class="admin-panel">
+          <div class="page-heading">
+            <div>
+              <h2>알림</h2>
+              <p>답글과 멘션을 확인하세요. 읽지 않은 알림 {{ notifications?.unread || 0 }}개</p>
+            </div>
+            <button
+              v-if="notifications?.unread"
+              class="secondary-button"
+              type="button"
+              @click="markNotificationsRead"
+            >
+              모두 읽음
+            </button>
+          </div>
+          <p v-if="!notifications?.items.length" class="page-empty">새 알림이 없어요.</p>
+          <NuxtLink
+            v-for="item in notifications?.items"
+            :key="item.id"
+            class="page-thread-row"
+            :class="{ 'font-semibold': !item.readAt }"
+            :to="
+              item.threadId && item.forumSlug
+                ? `/forums/${encodeURIComponent(item.forumSlug)}/threads/${item.threadId}`
+                : '/account/profile'
+            "
+            @click="
+              !item.readAt &&
+              $fetch('/api/account/notifications', { method: 'PATCH', body: { id: item.id } })
+            "
+            >{{ item.message }} · {{ item.actorName || '멤버' }}</NuxtLink
+          >
+        </section>
+        <section class="admin-panel">
+          <div class="page-heading">
+            <div>
+              <h2>저장한 글</h2>
+              <p>나중에 다시 읽을 게시글입니다.</p>
+            </div>
+          </div>
+          <p v-if="!bookmarks?.length" class="page-empty">저장한 글이 없어요.</p>
+          <NuxtLink
+            v-for="item in bookmarks"
+            :key="item.id"
+            class="page-thread-row"
+            :to="`/forums/${encodeURIComponent(item.forumSlug)}/threads/${item.id}`"
+            ><strong>{{ item.title }}</strong
+            ><small>{{ item.forumName }} · {{ item.category }}</small></NuxtLink
+          >
+        </section>
         <section class="admin-panel profile-photo-panel">
           <div class="profile-photo-heading">
             <UserAvatar :src="user?.avatarUrl" :name="user?.name" large />

@@ -2,6 +2,7 @@ import { and, eq, gt, isNull, or } from 'drizzle-orm';
 import { attachments, forumBans, forums } from '~~/server/db/schema';
 import useDrizzle from '~~/server/utils/useDrizzle';
 import verifyHuman from '~~/server/utils/verifyHuman';
+import { requireForumReadable } from '~~/server/utils/forumAccess';
 
 const maxImageSize = 5 * 1024 * 1024;
 const signatures: Record<string, (data: Uint8Array) => boolean> = {
@@ -30,9 +31,10 @@ export default defineEventHandler(async (event) => {
   if (!slug) throw createError({ statusCode: 400, statusMessage: 'Forum slug is required' });
   const db = useDrizzle(event.context.cloudflare.env.DB);
   const forum = await db.query.forums.findFirst({ where: eq(forums.slug, slug) });
-  if (!forum || forum.visibility !== 'public') {
+  if (!forum) {
     throw createError({ statusCode: 404, statusMessage: 'Community not found' });
   }
+  await requireForumReadable(event, forum);
   const ban = await db.query.forumBans.findFirst({
     where: and(
       eq(forumBans.forumId, forum.id),

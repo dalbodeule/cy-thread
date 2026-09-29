@@ -28,13 +28,19 @@ type LatestThread = {
   lastPostAt: number;
 };
 
-const { data: forums } = await useFetch<Forum[]>('/api/forums');
-const { data: featured } = await useFetch<FeaturedCategory[]>('/api/featured-categories');
+const [forumFetch, featuredFetch, latestFetch, adminStatusFetch] = await Promise.all([
+  useFetch<Forum[]>('/api/forums'),
+  useFetch<FeaturedCategory[]>('/api/featured-categories'),
+  useFetch<LatestThread[]>('/api/latest-threads'),
+  useFetch<{ isGlobalAdmin: boolean }>('/api/admin/status'),
+]);
+const { data: forums } = forumFetch;
+const { data: featured } = featuredFetch;
+const { data: latest } = latestFetch;
+const { data: adminStatus } = adminStatusFetch;
 const hasFeaturedActivity = computed(() =>
   (featured.value || []).some((item) => item.activityCount > 0)
 );
-const { data: latest } = await useFetch<LatestThread[]>('/api/latest-threads');
-const { data: adminStatus } = await useFetch<{ isGlobalAdmin: boolean }>('/api/admin/status');
 const query = ref('');
 const filteredForums = computed(() =>
   (forums.value || []).filter((forum) =>
@@ -45,7 +51,7 @@ const filteredForums = computed(() =>
 );
 const excerpt = (value: string | null) =>
   (value || '')
-    .replace(/[#*_>`\[\]()]/g, ' ')
+    .replace(/[#*_>`[\]()]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, 130);

@@ -3,6 +3,7 @@ import { categories, forumBans, forums, posts, threads } from '~~/server/db/sche
 import useDrizzle from '~~/server/utils/useDrizzle';
 import linkInlineAttachments from '~~/server/utils/linkInlineAttachments';
 import verifyHuman from '~~/server/utils/verifyHuman';
+import { requireForumReadable } from '~~/server/utils/forumAccess';
 
 function escapeHtml(value: string) {
   return value.replace(
@@ -46,9 +47,10 @@ export default defineEventHandler(async (event) => {
   if (!slug) throw createError({ statusCode: 400, statusMessage: 'Forum slug is required' });
   const db = useDrizzle(event.context.cloudflare.env.DB);
   const forum = await db.query.forums.findFirst({ where: eq(forums.slug, slug) });
-  if (!forum || forum.visibility !== 'public') {
+  if (!forum) {
     throw createError({ statusCode: 404, statusMessage: 'Community not found' });
   }
+  await requireForumReadable(event, forum);
 
   const [category, ban] = await Promise.all([
     db.query.categories.findFirst({

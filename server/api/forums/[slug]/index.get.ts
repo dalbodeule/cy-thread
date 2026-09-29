@@ -2,7 +2,7 @@ import { eq } from 'drizzle-orm';
 import { forums } from '~~/server/db/schema';
 import useDrizzle from '~~/server/utils/useDrizzle';
 import { readForumAppearance } from '~~/server/utils/forumAppearance';
-import requireForumModerator from '~~/server/utils/requireForumModerator';
+import { getForumViewer } from '~~/server/utils/forumAccess';
 
 export default defineEventHandler(async (event) => {
   const slug = getRouterParam(event, 'slug');
@@ -12,11 +12,13 @@ export default defineEventHandler(async (event) => {
   if (!forum) {
     throw createError({ statusCode: 404, statusMessage: 'Community not found' });
   }
-  if (forum.visibility !== 'public') await requireForumModerator(event, forum.id);
+  const viewer = await getForumViewer(event, forum.id);
   return {
     id: forum.id,
     slug: forum.slug,
     name: forum.name,
+    visibility: forum.visibility,
+    membershipStatus: viewer?.isMember ? 'approved' : viewer ? 'none' : 'anonymous',
     ...readForumAppearance(forum.settingsJson, forum.cssCustom),
   };
 });

@@ -2,6 +2,7 @@ import { and, eq } from 'drizzle-orm';
 import { forums, posts, reports, threads } from '~~/server/db/schema';
 import useDrizzle from '~~/server/utils/useDrizzle';
 import verifyHuman from '~~/server/utils/verifyHuman';
+import { requireForumReadable } from '~~/server/utils/forumAccess';
 
 const allowedReasons = ['spam', 'harassment', 'unsafe', 'other'] as const;
 
@@ -41,15 +42,9 @@ export default defineEventHandler(async (event) => {
       where: and(eq(posts.id, postId), eq(posts.threadId, threadId), eq(posts.isDeleted, false)),
     }),
   ]);
-  if (
-    !forum ||
-    forum.visibility !== 'public' ||
-    !thread ||
-    thread.forumId !== forum.id ||
-    thread.isDeleted ||
-    !post
-  )
+  if (!forum || !thread || thread.forumId !== forum.id || thread.isDeleted || !post)
     throw createError({ statusCode: 404, statusMessage: 'Post not found' });
+  await requireForumReadable(event, forum);
   if (post.authorUserId === reporterUserId)
     throw createError({ statusCode: 400, statusMessage: 'You cannot report your own post' });
 

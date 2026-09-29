@@ -3,6 +3,7 @@ import { forumAdmins, forums, posts, threads } from '~~/server/db/schema';
 import useDrizzle from '~~/server/utils/useDrizzle';
 import isGlobalAdmin from '~~/server/utils/isGlobalAdmin';
 import linkInlineAttachments from '~~/server/utils/linkInlineAttachments';
+import { requireForumReadable } from '~~/server/utils/forumAccess';
 
 function escapeHtml(value: string) {
   return value.replace(
@@ -45,16 +46,10 @@ export default defineEventHandler(async (event) => {
       where: and(eq(posts.id, postId), eq(posts.threadId, threadId), eq(posts.isDeleted, false)),
     }),
   ]);
-  if (
-    !forum ||
-    forum.visibility !== 'public' ||
-    !thread ||
-    thread.forumId !== forum.id ||
-    thread.isDeleted ||
-    !post
-  ) {
+  if (!forum || !thread || thread.forumId !== forum.id || thread.isDeleted || !post) {
     throw createError({ statusCode: 404, statusMessage: 'Post not found' });
   }
+  await requireForumReadable(event, forum);
   const moderator =
     forum.ownerUserId === userId ||
     (await isGlobalAdmin(db, userId)) ||

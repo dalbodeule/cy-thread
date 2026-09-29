@@ -1,8 +1,14 @@
 import { and, asc, eq, or, sql } from 'drizzle-orm';
 import { categories, forums, threads } from '~~/server/db/schema';
 import useDrizzle from '~~/server/utils/useDrizzle';
+import { setResponseHeader } from 'h3';
 
 export default defineEventHandler(async (event) => {
+  setResponseHeader(
+    event,
+    'Cache-Control',
+    'public, max-age=30, s-maxage=60, stale-while-revalidate=300'
+  );
   const db = useDrizzle(event.context.cloudflare.env.DB);
   const query = String(getQuery(event).q ?? '')
     .trim()

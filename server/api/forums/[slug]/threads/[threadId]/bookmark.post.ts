@@ -1,6 +1,7 @@
 import { and, eq } from 'drizzle-orm';
 import { forums, threadBookmarks, threads } from '~~/server/db/schema';
 import useDrizzle from '~~/server/utils/useDrizzle';
+import { requireForumReadable } from '~~/server/utils/forumAccess';
 
 export default defineEventHandler(async (event) => {
   const session = await requireUserSession(event);
@@ -22,9 +23,10 @@ export default defineEventHandler(async (event) => {
   if (!slug) throw createError({ statusCode: 400, statusMessage: 'Forum slug is required' });
   const db = useDrizzle(event.context.cloudflare.env.DB);
   const forum = await db.query.forums.findFirst({ where: eq(forums.slug, slug) });
-  if (!forum || forum.visibility !== 'public') {
+  if (!forum) {
     throw createError({ statusCode: 404, statusMessage: 'Community not found' });
   }
+  await requireForumReadable(event, forum);
   const thread = await db.query.threads.findFirst({
     where: and(eq(threads.id, threadId), eq(threads.forumId, forum.id)),
   });

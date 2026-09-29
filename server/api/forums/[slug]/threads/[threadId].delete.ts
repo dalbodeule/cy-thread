@@ -2,6 +2,7 @@ import { and, eq } from 'drizzle-orm';
 import { forumAdmins, forums, posts, threads } from '~~/server/db/schema';
 import useDrizzle from '~~/server/utils/useDrizzle';
 import isGlobalAdmin from '~~/server/utils/isGlobalAdmin';
+import { requireForumReadable } from '~~/server/utils/forumAccess';
 
 export default defineEventHandler(async (event) => {
   const session = await requireUserSession(event);
@@ -26,6 +27,7 @@ export default defineEventHandler(async (event) => {
   if (!forum || !thread || thread.forumId !== forum.id || thread.isDeleted) {
     throw createError({ statusCode: 404, statusMessage: 'Thread not found' });
   }
+  await requireForumReadable(event, forum);
 
   const admin =
     thread.authorUserId === actorUserId ||

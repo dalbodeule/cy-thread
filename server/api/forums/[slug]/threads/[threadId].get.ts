@@ -1,7 +1,17 @@
 import { and, asc, eq } from 'drizzle-orm';
-import { categories, forumAdmins, forums, posts, threads, users } from '~~/server/db/schema';
+import {
+  categories,
+  forumAdmins,
+  forums,
+  posts,
+  threadBookmarks,
+  threads,
+  users,
+} from '~~/server/db/schema';
 import useDrizzle from '~~/server/utils/useDrizzle';
 import isGlobalAdmin from '~~/server/utils/isGlobalAdmin';
+import { getForumViewer, requireForumReadable } from '~~/server/utils/forumAccess';
+import { readForumAppearance } from '~~/server/utils/forumAppearance';
 
 export default defineEventHandler(async (event) => {
   const slug = getRouterParam(event, 'slug');
@@ -34,12 +44,30 @@ export default defineEventHandler(async (event) => {
         eq(forums.slug, slug),
         eq(threads.id, threadId),
         eq(threads.isDeleted, false),
-        eq(forums.visibility, 'public')
+        eq(forums.slug, slug)
       )
     )
     .limit(1);
 
   if (!thread) throw createError({ statusCode: 404, statusMessage: 'Thread not found' });
+
+  const forumForAccess = await db.query.forums.findFirst({ where: eq(forums.id, thread.forumId) });
+  if (!forumForAccess) throw createError({ statusCode: 404, statusMessage: 'Thread not found' });
+  await requireForumReadable(event, forumForAccess);
+  const viewer = await getForumViewer(event, forumForAccess.id);
+  const commentAccess = readForumAppearance(
+    forumForAccess.settingsJson,
+    forumForAccess.cssCustom
+  ).commentAccess;
+  const canComment =
+    commentAccess === 'guest' ||
+    Boolean(
+      viewer &&
+      (commentAccess === 'members' ||
+        viewer.isMember ||
+        viewer.isModerator ||
+        viewer.userId === forumForAccess.ownerUserId)
+    );
 
   const replies = await db
     .select({
@@ -47,6 +75,7 @@ export default defineEventHandler(async (event) => {
       authorId: users.id,
       author: users.name,
       authorAvatarUrl: users.avatarUrl,
+      guestName: posts.guestName,
       markdown: posts.markdown,
       createdAt: posts.createdAt,
       updatedAt: posts.updatedAt,
@@ -55,12 +84,23 @@ export default defineEventHandler(async (event) => {
       isDeleted: posts.isDeleted,
     })
     .from(posts)
-    .innerJoin(users, eq(posts.authorUserId, users.id))
+    .leftJoin(users, eq(posts.authorUserId, users.id))
     .where(eq(posts.threadId, threadId))
     .orderBy(asc(posts.createdAt), asc(posts.id));
 
   const session = await getUserSession(event);
   const viewerId = Number(session.user?.id);
+  const isBookmarked =
+    Number.isInteger(viewerId) && viewerId > 0
+      ? Boolean(
+          await db.query.threadBookmarks.findFirst({
+            where: and(
+              eq(threadBookmarks.threadId, threadId),
+              eq(threadBookmarks.userId, viewerId)
+            ),
+          })
+        )
+      : false;
   const isAuthor = Number(thread.authorId) === viewerId;
   let canModerate = false;
   if (Number.isInteger(viewerId) && viewerId > 0) {
@@ -96,8 +136,11 @@ export default defineEventHandler(async (event) => {
 
   return {
     ...thread,
+    commentAccess,
+    canComment,
     isAuthor,
     canModerate,
+    isBookmarked,
     replies: orderedReplies.map((reply) => ({
       ...reply,
       isAuthor: Number(reply.authorId) === viewerId,

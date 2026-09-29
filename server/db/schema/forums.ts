@@ -9,7 +9,7 @@ export const forums = sqliteTable('forums', {
   ownerUserId: integer('owner_user_id')
     .notNull()
     .references(() => users.id, { onDelete: 'restrict' }),
-  visibility: text('visibility').notNull().default('public'), // public | followers | admins
+  visibility: text('visibility').notNull().default('public'), // public | private
   cssCustom: text('css_custom'),
   settingsJson: text('settings_json'),
   createdAt: integer('created_at', { mode: 'timestamp_ms' })

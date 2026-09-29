@@ -1,4 +1,11 @@
+import { setResponseHeader } from 'h3';
+
 export default defineEventHandler(async (event) => {
+  setResponseHeader(
+    event,
+    'Cache-Control',
+    'public, max-age=15, s-maxage=30, stale-while-revalidate=120'
+  );
   const db = event.context.cloudflare.env.DB as D1Database;
   const result = await db
     .prepare(
