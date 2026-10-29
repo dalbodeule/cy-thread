@@ -1,6 +1,7 @@
 import { and, eq } from 'drizzle-orm';
 import { forumRequests, forums } from '~~/server/db/schema';
 import requireGlobalAdmin from '~~/server/utils/requireGlobalAdmin';
+import { summarizeError } from '~~/server/utils/logError';
 
 export default defineEventHandler(async (event) => {
   const requestId = Number(getRouterParam(event, 'requestId'));
@@ -80,7 +81,11 @@ export default defineEventHandler(async (event) => {
         .bind(userId, reviewedAt.getTime(), reapplyBlockedUntil.getTime(), requestId),
     ]);
   } catch (error) {
-    console.error('Unable to approve community request', error);
+    console.error({
+      event: 'community_request_approval_failed',
+      requestId,
+      ...summarizeError(error),
+    });
     throw createError({
       statusCode: 409,
       statusMessage: 'Community request could not be approved',

@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { users } from '~~/server/db/schema';
 import useDrizzle from '~~/server/utils/useDrizzle';
+import { summarizeError } from '~~/server/utils/logError';
 
 const maxSize = 2 * 1024 * 1024;
 const formats: Record<string, { extension: string; valid: (data: Uint8Array) => boolean }> = {
@@ -65,7 +66,9 @@ export default defineEventHandler(async (event) => {
     event.waitUntil(
       bucket
         .delete(account.uploadedAvatarKey)
-        .catch((error: unknown) => console.warn('Old avatar cleanup failed', error))
+        .catch((error: unknown) =>
+          console.warn({ event: 'old_avatar_cleanup_failed', ...summarizeError(error) })
+        )
     );
   }
   setResponseStatus(event, 201);

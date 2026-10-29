@@ -2,6 +2,7 @@ import { and, eq, isNull, or } from 'drizzle-orm';
 import { attachments, forums, posts } from '~~/server/db/schema';
 import useDrizzle from '~~/server/utils/useDrizzle';
 import { getForumViewer } from '~~/server/utils/forumAccess';
+import { summarizeError } from '~~/server/utils/logError';
 
 export default defineEventHandler(async (event) => {
   const slug = getRouterParam(event, 'slug');
@@ -74,7 +75,7 @@ export default defineEventHandler(async (event) => {
   if (cache) {
     event.waitUntil(
       cache.put(cacheKey, response.clone()).catch((error: unknown) => {
-        console.warn('Unable to cache published image', error);
+        console.warn({ event: 'published_image_cache_failed', ...summarizeError(error) });
       })
     );
   }

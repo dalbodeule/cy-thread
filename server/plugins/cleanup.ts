@@ -1,3 +1,5 @@
+import { summarizeError } from '~~/server/utils/logError';
+
 type CleanupEnv = { DB: D1Database; BLOB: R2Bucket };
 
 async function cleanupUnusedAttachments(env: CleanupEnv) {
@@ -16,16 +18,21 @@ async function cleanupUnusedAttachments(env: CleanupEnv) {
         .bind(row.id)
         .run();
     } catch (error) {
-      console.warn('Unused attachment cleanup failed', { id: row.id, error });
+      console.warn({
+        event: 'unused_attachment_cleanup_failed',
+        id: row.id,
+        ...summarizeError(error),
+      });
       await env.DB.prepare(
         'UPDATE attachments SET cleanup_attempted_at = ? WHERE id = ? AND post_id IS NULL'
       )
         .bind(now, row.id)
         .run()
         .catch((markError) =>
-          console.warn('Unable to record unused attachment cleanup retry', {
+          console.warn({
+            event: 'unused_attachment_cleanup_retry_record_failed',
             id: row.id,
-            error: markError,
+            ...summarizeError(markError),
           })
         );
     }
@@ -53,9 +60,10 @@ async function cleanupStaleAvatars(env: CleanupEnv) {
       const results = await Promise.allSettled(stale.map((object) => env.BLOB.delete(object.key)));
       results.forEach((result, index) => {
         if (result.status === 'rejected') {
-          console.warn('Stale avatar cleanup failed', {
+          console.warn({
+            event: 'stale_avatar_cleanup_failed',
             key: stale[index]?.key,
-            error: result.reason,
+            ...summarizeError(result.reason),
           });
         }
       });
@@ -85,9 +93,10 @@ async function cleanupDeletedPostAttachments(env: CleanupEnv) {
     if (result.status === 'fulfilled') deletedIds.push(attachment.id);
     else {
       retryIds.push(attachment.id);
-      console.warn('Deleted-post attachment cleanup failed', {
+      console.warn({
+        event: 'deleted_post_attachment_cleanup_failed',
         id: attachment.id,
-        error: result.reason,
+        ...summarizeError(result.reason),
       });
     }
   });
@@ -98,7 +107,10 @@ async function cleanupDeletedPostAttachments(env: CleanupEnv) {
       .bind(now, ...retryIds)
       .run()
       .catch((error) =>
-        console.warn('Unable to record deleted-post attachment cleanup retries', { error })
+        console.warn({
+          event: 'deleted_post_attachment_cleanup_retries_record_failed',
+          ...summarizeError(error),
+        })
       );
   }
   if (deletedIds.length) {
@@ -109,7 +121,10 @@ async function cleanupDeletedPostAttachments(env: CleanupEnv) {
         .bind(...deletedIds, cutoff)
         .run();
     } catch (error) {
-      console.warn('Deleted-post attachment metadata cleanup failed', { error });
+      console.warn({
+        event: 'deleted_post_attachment_metadata_cleanup_failed',
+        ...summarizeError(error),
+      });
       const results = await Promise.allSettled(
         deletedIds.map((id) =>
           env.DB.prepare('UPDATE attachments SET cleanup_attempted_at = ? WHERE id = ?')
@@ -119,9 +134,10 @@ async function cleanupDeletedPostAttachments(env: CleanupEnv) {
       );
       results.forEach((result, index) => {
         if (result.status === 'rejected') {
-          console.warn('Unable to record deleted-post attachment cleanup retry', {
+          console.warn({
+            event: 'deleted_post_attachment_cleanup_retry_record_failed',
             id: deletedIds[index],
-            error: result.reason,
+            ...summarizeError(result.reason),
           });
         }
       });

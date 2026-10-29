@@ -1,4 +1,5 @@
 import { renderMail } from '~~/server/utils/renderMail';
+import { summarizeError } from '~~/server/utils/logError';
 
 type MailEnv = {
   DB: D1Database;
@@ -182,7 +183,14 @@ async function sendPending(env: MailEnv) {
       )
         .bind(failed ? 'failed' : 'queued', next, detail, item.id)
         .run();
-      console.error('Mail send failed', { id: item.id, error: detail });
+      if (item.attempts === 0 || failed) {
+        console.error({
+          event: 'mail_send_failed',
+          id: item.id,
+          finalAttempt: failed,
+          ...summarizeError(error),
+        });
+      }
     }
   }
   await env.DB.prepare(

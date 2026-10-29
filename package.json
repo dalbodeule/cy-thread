@@ -20,6 +20,7 @@
     "db:migrate:remote": "wrangler d1 migrations apply community --remote",
     "db:backup:remote": "wrangler d1 export community --remote --output=./community-backup.sql",
     "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "postinstall": "nuxt prepare"
   },
   "dependencies": {
@@ -44,7 +45,7 @@
     "eslint-plugin-prettier": "^5.5.7",
     "@pinia/nuxt": "^1.0.3",
     "prettier": "^3.9.10",
-    "@types/node": "^26.6.6",
+    "@types/node": "^26.6.5",
     "@vueuse/nuxt": "^15.0.0",
     "drizzle-kit": "^0.31.11",
     "wrangler": "^4.154.0"

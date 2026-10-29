@@ -7,18 +7,24 @@ export default defineNitroPlugin((nitroApp) => {
   nitroApp.hooks.hook('afterResponse', (event) => {
     const startedAt = Number(event.context.requestStartedAt || Date.now());
     const durationMs = Math.max(0, Date.now() - startedAt);
+    const status = getResponseStatus(event);
     setResponseHeader(event, 'Server-Timing', `app;dur=${durationMs}`);
-    if (durationMs >= 1000) {
+    if (status < 400 && durationMs >= 1000 && Math.random() < 0.1) {
       console.warn({
         event: 'slow_response',
+        sampleRate: 0.1,
         durationMs,
         method: getMethod(event),
         path: getRequestURL(event).pathname,
       });
     }
-    const status = getResponseStatus(event);
-    if (status === 429) {
-      console.warn({ event: 'rate_limited_response', status, method: getMethod(event) });
+    if (status === 429 && Math.random() < 0.01) {
+      console.warn({
+        event: 'rate_limited_response',
+        sampleRate: 0.01,
+        status,
+        method: getMethod(event),
+      });
     } else if (status >= 500) {
       console.error({
         event: 'server_error_response',

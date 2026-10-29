@@ -2,6 +2,7 @@ import { getMethod, getRequestHeader, getRequestURL, setResponseHeader } from 'h
 import { and, desc, eq, gt, isNull, or } from 'drizzle-orm';
 import { userSuspensions, users } from '~~/server/db/schema';
 import useDrizzle from '~~/server/utils/useDrizzle';
+import { summarizeError } from '~~/server/utils/logError';
 
 const mutatingMethods = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 const maxApiBodyBytes = 1024 * 1024;
@@ -135,7 +136,7 @@ export default defineEventHandler(async (event) => {
   try {
     ({ success: allowed } = await limiter.limit({ key: rateLimitKey }));
   } catch (error) {
-    console.error(`Rate limiter ${bindingName} failed`, error);
+    console.error({ event: 'rate_limiter_failed', binding: bindingName, ...summarizeError(error) });
     return;
   }
   if (!allowed) {

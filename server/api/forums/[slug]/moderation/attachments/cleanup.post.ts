@@ -2,6 +2,7 @@ import { and, eq, isNull, lt } from 'drizzle-orm';
 import { attachments, forums } from '~~/server/db/schema';
 import useDrizzle from '~~/server/utils/useDrizzle';
 import requireForumModerator from '~~/server/utils/requireForumModerator';
+import { summarizeError } from '~~/server/utils/logError';
 
 const abandonedAfterMs = 24 * 60 * 60 * 1000;
 
@@ -34,9 +35,10 @@ export default defineEventHandler(async (event) => {
       await db.delete(attachments).where(eq(attachments.id, attachment.id));
       removed += 1;
     } catch (error) {
-      console.error('Failed to remove abandoned community attachment', {
+      console.error({
+        event: 'abandoned_attachment_cleanup_failed',
         attachmentId: attachment.id,
-        error,
+        ...summarizeError(error),
       });
     }
   }

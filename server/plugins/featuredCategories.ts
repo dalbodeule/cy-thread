@@ -27,6 +27,5 @@ export default defineNitroPlugin((nitroApp) => {
       `
       ).bind(refreshedAt, since),
     ]);
-    console.log({ event: 'featured_categories_refreshed', refreshedAt });
   });
 });

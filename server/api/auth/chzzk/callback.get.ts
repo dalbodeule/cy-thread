@@ -2,6 +2,7 @@ import { and, eq } from 'drizzle-orm';
 import { deleteCookie, getCookie, getQuery, sendRedirect } from 'h3';
 import { oauthAccounts, users } from '~~/server/db/schema';
 import getChzzkOAuthConfig from '~~/server/utils/getChzzkOAuthConfig';
+import { summarizeError } from '~~/server/utils/logError';
 import useDrizzle from '~~/server/utils/useDrizzle';
 
 interface ChzzkResponse<T> {
@@ -91,7 +92,7 @@ export default defineEventHandler(async (event) => {
     try {
       channel = await getChzzkChannel(channelId, clientId, clientSecret);
     } catch (error) {
-      console.warn('CHZZK channel lookup failed', error);
+      console.warn({ event: 'chzzk_channel_lookup_failed', ...summarizeError(error) });
     }
     const channelName = channel?.channelName?.trim() || profile.channelName?.trim() || 'CHZZK 멤버';
     const imageUrl = channel?.channelImageUrl?.trim();
@@ -168,7 +169,7 @@ export default defineEventHandler(async (event) => {
     });
     return sendRedirect(event, user.email || user.contactEmail ? '/' : '/account/email');
   } catch (error) {
-    console.error('CHZZK login failed', error);
+    console.error({ event: 'chzzk_login_failed', ...summarizeError(error) });
     return sendRedirect(event, '/login?auth=error');
   }
 });
