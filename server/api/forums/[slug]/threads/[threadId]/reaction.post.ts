@@ -52,12 +52,15 @@ export default defineEventHandler(async (event) => {
         );
   await db.delete(reactions).where(reactionWhere);
   if (reacted) {
-    await db.insert(reactions).values({
-      userId,
-      threadId: target === 'thread' ? threadId : null,
-      postId: target === 'post' ? targetId : null,
-      kind: 'like',
-    });
+    await db
+      .insert(reactions)
+      .values({
+        userId,
+        threadId: target === 'thread' ? threadId : null,
+        postId: target === 'post' ? targetId : null,
+        kind: 'like',
+      })
+      .onConflictDoNothing();
   }
   const countWhere =
     target === 'post'

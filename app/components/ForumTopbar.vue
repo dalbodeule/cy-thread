@@ -46,7 +46,7 @@ watch(
 );
 </script>
 <template>
-  <header class="page-topbar forum-topbar">
+  <header class="page-topbar forum-topbar" @keydown.esc="mobileMenuOpen = false">
     <ForumBrand :slug="slug" />
     <nav class="page-nav forum-header-nav" aria-label="Forum 카테고리">
       <NuxtLink
@@ -81,43 +81,55 @@ watch(
     >
       <span aria-hidden="true">☰</span>
     </button>
-    <div
-      v-if="mobileMenuOpen"
-      class="forum-mobile-menu-backdrop"
-      aria-hidden="true"
-      @click="mobileMenuOpen = false"
-    />
-    <aside
-      id="forum-mobile-menu"
-      class="forum-mobile-menu"
-      :class="{ 'is-open': mobileMenuOpen }"
-      :aria-hidden="!mobileMenuOpen"
-      aria-label="Forum 메뉴"
-    >
-      <div class="forum-mobile-menu-head">
-        <strong>메뉴</strong>
-        <button type="button" aria-label="메뉴 닫기" @click="mobileMenuOpen = false">×</button>
-      </div>
-      <nav class="forum-mobile-menu-nav" aria-label="Forum 카테고리">
-        <NuxtLink
-          :to="threadsPath"
-          :class="{ 'forum-nav-active': route.path === threadsPath && !activeCategory }"
-        >
-          전체
-        </NuxtLink>
-        <NuxtLink
-          v-for="item in categories || []"
-          :key="item.id"
-          :to="{ path: threadsPath, query: { category: item.slug } }"
-          :class="{ 'forum-nav-active': activeCategory === item.slug }"
-        >
-          {{ item.name }}
-        </NuxtLink>
-      </nav>
-      <div class="forum-mobile-menu-links">
-        <NuxtLink v-if="canModerate" :to="`${forumPath}/admin`">운영 관리</NuxtLink>
-        <NuxtLink to="/">메인으로 나가기 <span aria-hidden="true">↗</span></NuxtLink>
-      </div>
-    </aside>
+    <Transition name="mobile-drawer-backdrop">
+      <div
+        v-if="mobileMenuOpen"
+        class="forum-mobile-menu-backdrop"
+        aria-hidden="true"
+        @click="mobileMenuOpen = false"
+      />
+    </Transition>
+    <Transition name="mobile-drawer-panel">
+      <aside
+        v-if="mobileMenuOpen"
+        id="forum-mobile-menu"
+        class="forum-mobile-menu is-open"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Forum 메뉴"
+      >
+        <div class="forum-mobile-menu-head">
+          <strong>메뉴</strong>
+          <button type="button" aria-label="메뉴 닫기" @click="mobileMenuOpen = false">×</button>
+        </div>
+        <nav class="forum-mobile-menu-nav" aria-label="Forum 카테고리">
+          <NuxtLink
+            :to="threadsPath"
+            :class="{ 'forum-nav-active': route.path === threadsPath && !activeCategory }"
+            @click="mobileMenuOpen = false"
+          >
+            전체
+          </NuxtLink>
+          <NuxtLink
+            v-for="item in categories || []"
+            :key="item.id"
+            :to="{ path: threadsPath, query: { category: item.slug } }"
+            :class="{ 'forum-nav-active': activeCategory === item.slug }"
+            @click="mobileMenuOpen = false"
+          >
+            {{ item.name }}
+          </NuxtLink>
+        </nav>
+        <div class="forum-mobile-menu-links">
+          <NuxtLink v-if="canModerate" :to="`${forumPath}/admin`" @click="mobileMenuOpen = false"
+            >운영 관리</NuxtLink
+          >
+          <NuxtLink to="/" @click="mobileMenuOpen = false"
+            >메인으로 나가기 <span aria-hidden="true">↗</span></NuxtLink
+          >
+        </div>
+        <HeaderAccountActions :is-global-admin="isGlobalAdmin" mobile-drawer />
+      </aside>
+    </Transition>
   </header>
 </template>

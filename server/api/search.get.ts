@@ -35,7 +35,7 @@ export default defineEventHandler(async (event) => {
   if (/^\d{4}-\d{2}-\d{2}$/.test(from))
     filters.push(gte(threads.createdAt, new Date(`${from}T00:00:00Z`)));
   const db = useDrizzle(event.context.cloudflare.env.DB);
-  const results = await db
+  const matches = db
     .select({
       threadId: threads.id,
       title: threads.title,
@@ -47,7 +47,11 @@ export default defineEventHandler(async (event) => {
       category: categories.name,
       categorySlug: categories.slug,
       author: users.name,
-      rank: sql<number>`bm25(posts_fts)`,
+      rank: sql<number>`posts_fts.rank`,
+      threadMatch: sql<number>`row_number() over (
+        partition by ${threads.id}
+        order by posts_fts.rank
+      )`,
     })
     .from(posts)
     .innerJoin(threads, eq(posts.threadId, threads.id))
@@ -55,8 +59,23 @@ export default defineEventHandler(async (event) => {
     .innerJoin(categories, eq(threads.categoryId, categories.id))
     .innerJoin(users, eq(threads.authorUserId, users.id))
     .where(and(...filters))
-    .groupBy(threads.id, posts.id)
-    .orderBy(sort === 'latest' ? desc(threads.createdAt) : asc(sql`rank`))
+    .as('matches');
+  const results = await db
+    .select({
+      threadId: matches.threadId,
+      title: matches.title,
+      excerpt: matches.excerpt,
+      createdAt: matches.createdAt,
+      lastPostAt: matches.lastPostAt,
+      forumSlug: matches.forumSlug,
+      forumName: matches.forumName,
+      category: matches.category,
+      categorySlug: matches.categorySlug,
+      author: matches.author,
+    })
+    .from(matches)
+    .where(eq(matches.threadMatch, 1))
+    .orderBy(sort === 'latest' ? desc(matches.createdAt) : asc(matches.rank))
     .limit(limit)
     .offset(offset);
   return results;

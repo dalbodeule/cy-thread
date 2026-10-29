@@ -3927,6 +3927,35 @@ html[data-theme='dark'] .header-mobile-menu-panel :is(a, button):hover {
   height: 76px;
   font-size: 28px;
 }
+.site-mobile-menu-button,
+.site-mobile-menu,
+.site-mobile-menu-backdrop {
+  display: none;
+}
+.mobile-drawer-panel-enter-active,
+.mobile-drawer-panel-leave-active {
+  transition: transform 180ms ease;
+}
+.mobile-drawer-panel-enter-from,
+.mobile-drawer-panel-leave-to {
+  transform: translateX(100%) !important;
+}
+.mobile-drawer-backdrop-enter-active,
+.mobile-drawer-backdrop-leave-active {
+  transition: opacity 180ms ease;
+}
+.mobile-drawer-backdrop-enter-from,
+.mobile-drawer-backdrop-leave-to {
+  opacity: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .mobile-drawer-panel-enter-active,
+  .mobile-drawer-panel-leave-active,
+  .mobile-drawer-backdrop-enter-active,
+  .mobile-drawer-backdrop-leave-active {
+    transition-duration: 1ms;
+  }
+}
 @media (max-width: 900px) {
   .header-account-desktop {
     display: none;
@@ -3947,20 +3976,12 @@ html[data-theme='dark'] .header-mobile-menu-panel :is(a, button):hover {
   .forum-page > .page-topbar > .page-nav,
   .home-topbar > .page-nav,
   .site-topbar > .page-nav {
-    display: flex !important;
-    grid-column: 1 / -1;
-    grid-row: 2;
-    gap: 20px;
-    overflow-x: auto;
-    white-space: nowrap;
-    padding: 3px 0 2px;
+    display: none !important;
   }
   .forum-page > .page-topbar > .header-account-actions,
   .home-topbar > .header-account-actions,
   .site-topbar > .header-account-actions {
-    grid-column: 2;
-    grid-row: 1;
-    justify-self: end;
+    display: none;
   }
   .forum-brand,
   .home-brand {
@@ -3979,8 +4000,134 @@ html[data-theme='dark'] .header-mobile-menu-panel :is(a, button):hover {
     margin-right: 0;
   }
   .forum-page > .forum-topbar > .header-account-actions {
-    grid-column: 2;
+    display: none;
+  }
+  .site-mobile-menu-button {
+    display: inline-flex;
+    grid-column: 3;
     grid-row: 1;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    border: 1px solid #dce5dc;
+    border-radius: 9px;
+    background: #fff;
+    color: #31664d;
+    font-size: 20px;
+    line-height: 1;
+  }
+  html[data-theme='dark'] .site-mobile-menu-button {
+    border-color: #405746;
+    background: #1b2821;
+    color: #e6f0e8;
+  }
+  .site-mobile-menu-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: block;
+    background: rgb(17 34 23 / 32%);
+  }
+  .site-mobile-menu {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 60;
+    display: flex;
+    width: min(86vw, 340px);
+    flex-direction: column;
+    padding: 22px 20px;
+    border-left: 1px solid #dce5dc;
+    background: #fff;
+    box-shadow: -14px 0 35px rgb(16 41 27 / 15%);
+    transform: translateX(100%);
+    transition: transform 180ms ease;
+  }
+  .site-mobile-menu.is-open {
+    transform: translateX(0);
+  }
+  html[data-theme='dark'] .site-mobile-menu {
+    border-color: #304437;
+    background: #1b2821;
+  }
+  .site-mobile-menu-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 18px;
+    border-bottom: 1px solid #dce5dc;
+    color: #263630;
+    font-size: 18px;
+  }
+  html[data-theme='dark'] .site-mobile-menu-head {
+    border-color: #304437;
+    color: #e6f0e8;
+  }
+  .site-mobile-menu-head button {
+    padding: 2px 7px;
+    color: #657369;
+    font-size: 28px;
+    line-height: 1;
+  }
+  .site-mobile-menu-nav {
+    display: grid;
+    gap: 4px;
+    padding: 18px 0;
+  }
+  .site-mobile-menu-nav a {
+    display: block;
+    padding: 12px 10px;
+    border-radius: 8px;
+    color: #263630;
+    font-size: 14px;
+    font-weight: 700;
+  }
+  .site-mobile-menu-nav a:hover {
+    background: #edf4ed;
+    color: #31664d;
+  }
+  html[data-theme='dark'] .site-mobile-menu-nav a {
+    color: #e6f0e8;
+  }
+  html[data-theme='dark'] .site-mobile-menu-nav a:hover {
+    background: #2a4030;
+    color: #e6f0e8;
+  }
+  .site-mobile-menu > .header-account-actions,
+  .forum-mobile-menu > .header-account-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    margin-top: auto;
+    padding-top: 18px;
+    border-top: 1px solid var(--forum-border, #dce5dc);
+  }
+  .site-mobile-menu .header-account-drawer-links,
+  .forum-mobile-menu .header-account-drawer-links {
+    display: grid;
+    gap: 4px;
+  }
+  .site-mobile-menu .header-account-drawer-links :is(a, button),
+  .forum-mobile-menu .header-account-drawer-links :is(a, button) {
+    display: block;
+    width: 100%;
+    padding: 12px 10px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--forum-text, #263630);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    text-align: left;
+  }
+  .site-mobile-menu .header-account-drawer-links :is(a, button):hover,
+  .forum-mobile-menu .header-account-drawer-links :is(a, button):hover {
+    background: var(--forum-canvas, #edf4ed);
+    color: var(--forum-accent, #31664d);
   }
   .forum-mobile-menu-button {
     display: inline-flex;
@@ -4085,7 +4232,6 @@ html[data-theme='dark'] .header-mobile-menu-panel :is(a, button):hover {
     padding: 25px 20px;
   }
 }
-
 /* Forum landing page */
 .forum-intro {
   display: grid;

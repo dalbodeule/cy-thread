@@ -1,5 +1,5 @@
 <script setup lang="ts">
-defineProps<{ isGlobalAdmin?: boolean }>();
+defineProps<{ isGlobalAdmin?: boolean; mobileDrawer?: boolean }>();
 const { user, loggedIn, clear } = useUserSession();
 async function logout() {
   await $fetch('/api/auth/logout', { method: 'POST' });
@@ -11,6 +11,11 @@ async function logout() {
   <div class="header-account-actions">
     <ThemeControl />
     <template v-if="loggedIn">
+      <div v-if="mobileDrawer" class="header-account-drawer-links">
+        <NuxtLink to="/account/profile">내 프로필</NuxtLink>
+        <NuxtLink v-if="isGlobalAdmin" to="/admin">관리도구</NuxtLink>
+        <button type="button" @click="logout">로그아웃</button>
+      </div>
       <div class="header-account-desktop">
         <NuxtLink class="header-profile-link" to="/account/profile"
           ><UserAvatar :src="user?.avatarUrl" :name="user?.name" /><span>{{
@@ -20,7 +25,7 @@ async function logout() {
         <NuxtLink v-if="isGlobalAdmin" class="admin-tool-button" to="/admin">관리도구</NuxtLink>
         <button type="button" class="text-button" @click="logout">로그아웃</button>
       </div>
-      <details class="header-mobile-menu">
+      <details v-if="!mobileDrawer" class="header-mobile-menu">
         <summary><UserAvatar :src="user?.avatarUrl" :name="user?.name" /><span>계정</span></summary>
         <div class="header-mobile-menu-panel">
           <NuxtLink to="/account/profile">내 프로필</NuxtLink>

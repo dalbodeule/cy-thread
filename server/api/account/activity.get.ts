@@ -1,4 +1,4 @@
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, isNotNull } from 'drizzle-orm';
 import { categories, forums, posts, threads } from '~~/server/db/schema';
 import useDrizzle from '~~/server/utils/useDrizzle';
 
@@ -40,6 +40,7 @@ export default defineEventHandler(async (event) => {
       .where(
         and(
           eq(posts.authorUserId, userId),
+          isNotNull(posts.parentPostId),
           eq(posts.isDeleted, false),
           eq(threads.isDeleted, false)
         )

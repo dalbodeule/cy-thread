@@ -70,7 +70,8 @@ export default defineEventHandler(async (event) => {
   if (matchedKeyword) {
     throw createError({
       statusCode: 422,
-      statusMessage: '운영진 검토가 필요한 표현이 포함되어 있어 게시할 수 없습니다.',
+      statusMessage:
+        '커뮤니티 검토 규칙에 걸려 게시할 수 없습니다. 내용을 수정한 뒤 다시 시도해 주세요.',
     });
   }
 

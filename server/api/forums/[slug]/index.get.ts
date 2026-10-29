@@ -13,12 +13,19 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, statusMessage: 'Community not found' });
   }
   const viewer = await getForumViewer(event, forum.id);
+  const appearance = readForumAppearance(forum.settingsJson, forum.cssCustom);
+  const canViewResources =
+    forum.visibility === 'public' ||
+    Boolean(
+      viewer && (viewer.isModerator || viewer.isMember || viewer.userId === forum.ownerUserId)
+    );
   return {
     id: forum.id,
     slug: forum.slug,
     name: forum.name,
     visibility: forum.visibility,
     membershipStatus: viewer?.isMember ? 'approved' : viewer ? 'none' : 'anonymous',
-    ...readForumAppearance(forum.settingsJson, forum.cssCustom),
+    ...appearance,
+    resourceLinks: canViewResources ? appearance.resourceLinks : [],
   };
 });

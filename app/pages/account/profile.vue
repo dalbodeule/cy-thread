@@ -173,7 +173,7 @@ useSeoMeta({ title: '프로필 | mori.space', robots: 'noindex, nofollow' });
           <div class="page-heading">
             <div>
               <h2>내 Forum</h2>
-              <p>운영하거나 팔로우한 Forum입니다.</p>
+              <p>소유하거나 Forum 관리자이거나 팔로우한 Forum입니다.</p>
             </div>
           </div>
           <p v-if="!myForums?.length" class="page-empty">아직 연결된 Forum이 없어요.</p>

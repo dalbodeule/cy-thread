@@ -26,6 +26,7 @@ type LatestThread = {
   categoryName: string;
   authorName: string | null;
   lastPostAt: number;
+  viewCount: number;
 };
 
 const [forumFetch, featuredFetch, latestFetch, adminStatusFetch] = await Promise.all([
@@ -38,6 +39,14 @@ const { data: forums } = forumFetch;
 const { data: featured } = featuredFetch;
 const { data: latest } = latestFetch;
 const { data: adminStatus } = adminStatusFetch;
+const mobileMenuOpen = ref(false);
+const route = useRoute();
+watch(
+  () => route.fullPath,
+  () => {
+    mobileMenuOpen.value = false;
+  }
+);
 const hasFeaturedActivity = computed(() =>
   (featured.value || []).some((item) => item.activityCount > 0)
 );
@@ -67,7 +76,7 @@ useHead({ link: [{ rel: 'canonical', href: 'https://community.mori.space/' }] })
 
 <template>
   <div class="page-shell home-page">
-    <header class="page-topbar home-topbar">
+    <header class="page-topbar home-topbar" @keydown.esc="mobileMenuOpen = false">
       <NuxtLink class="home-brand" to="/"
         ><span class="home-brand-icon">m</span><span>mori.space</span></NuxtLink
       >
@@ -77,6 +86,46 @@ useHead({ link: [{ rel: 'canonical', href: 'https://community.mori.space/' }] })
         <NuxtLink to="/explore">카테고리 찾기</NuxtLink>
       </nav>
       <HeaderAccountActions :is-global-admin="adminStatus?.isGlobalAdmin" />
+      <button
+        class="site-mobile-menu-button"
+        type="button"
+        aria-label="사이트 메뉴 열기"
+        :aria-expanded="mobileMenuOpen"
+        aria-controls="site-mobile-menu"
+        @click="mobileMenuOpen = !mobileMenuOpen"
+      >
+        <span aria-hidden="true">☰</span>
+      </button>
+      <Transition name="mobile-drawer-backdrop">
+        <div
+          v-if="mobileMenuOpen"
+          class="site-mobile-menu-backdrop"
+          aria-hidden="true"
+          @click="mobileMenuOpen = false"
+        />
+      </Transition>
+      <Transition name="mobile-drawer-panel">
+        <aside
+          v-if="mobileMenuOpen"
+          id="site-mobile-menu"
+          class="site-mobile-menu is-open"
+          role="dialog"
+          aria-modal="true"
+          aria-label="사이트 메뉴"
+        >
+          <div class="site-mobile-menu-head">
+            <strong>메뉴</strong>
+            <button type="button" aria-label="메뉴 닫기" @click="mobileMenuOpen = false">×</button>
+          </div>
+          <nav class="site-mobile-menu-nav" aria-label="사이트 메뉴">
+            <a href="#forums" @click="mobileMenuOpen = false">Forum 둘러보기</a>
+            <a href="#latest" @click="mobileMenuOpen = false">최근 이야기</a>
+            <NuxtLink to="/explore" @click="mobileMenuOpen = false">카테고리 찾기</NuxtLink>
+            <NuxtLink to="/forums/request" @click="mobileMenuOpen = false">Forum 개설</NuxtLink>
+          </nav>
+          <HeaderAccountActions :is-global-admin="adminStatus?.isGlobalAdmin" mobile-drawer />
+        </aside>
+      </Transition>
     </header>
 
     <main class="page-content home-content">
@@ -185,7 +234,10 @@ useHead({ link: [{ rel: 'canonical', href: 'https://community.mori.space/' }] })
             >
             <strong>{{ thread.title }}</strong>
             <p v-if="excerpt(thread.excerpt)">{{ excerpt(thread.excerpt) }}</p>
-            <small>{{ thread.authorName || '멤버' }} · {{ date(thread.lastPostAt) }}</small>
+            <small
+              >{{ thread.authorName || '멤버' }} · {{ date(thread.lastPostAt) }} ·
+              {{ thread.viewCount.toLocaleString('ko-KR') }}회 조회</small
+            >
           </NuxtLink>
         </div>
         <p v-else class="page-empty">

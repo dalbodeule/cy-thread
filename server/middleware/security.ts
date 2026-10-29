@@ -11,6 +11,9 @@ const limiterFor = (method: string, path: string) => {
   if (method === 'GET') return 'READ_LIMITER';
   if (method === 'POST' && path === '/api/forums') return 'COMMUNITY_CREATE_LIMITER';
   if (path.endsWith('/moderation/attachments/cleanup')) return 'UPLOAD_CLEANUP_LIMITER';
+  if (path.includes('/moderation/') || /^\/api\/admin\/users\/\d+\/suspension$/.test(path)) {
+    return 'MODERATION_LIMITER';
+  }
   if (path.endsWith('/attachments')) return 'UPLOAD_LIMITER';
   if (method === 'POST' && path === '/api/account/avatar') return 'UPLOAD_LIMITER';
   if (path.endsWith('/report')) return 'REPORT_LIMITER';
@@ -20,7 +23,6 @@ const limiterFor = (method: string, path: string) => {
   ) {
     return 'CONTENT_WRITE_LIMITER';
   }
-  if (path.includes('/moderation/')) return 'MODERATION_LIMITER';
   return 'GENERAL_WRITE_LIMITER';
 };
 
@@ -30,9 +32,9 @@ type RateLimitBinding = {
 
 export default defineEventHandler(async (event) => {
   const path = getRequestURL(event).pathname;
-  if (path.startsWith('/api/')) {
-    setResponseHeader(event, 'Cache-Control', 'no-store');
-  }
+  // Workers Cache is opt-in by response policy: only handlers that explicitly
+  // return public Cache-Control headers should be cached at the Worker edge.
+  setResponseHeader(event, 'Cache-Control', 'private, no-store');
 
   setResponseHeader(event, 'X-Content-Type-Options', 'nosniff');
   setResponseHeader(event, 'X-Frame-Options', 'DENY');
@@ -46,6 +48,7 @@ export default defineEventHandler(async (event) => {
     method === 'GET' &&
     (/^\/api\/forums\/[^/]+\/threads(?:\/\d+)?$/.test(path) ||
       ['/api/forums', '/api/categories', '/api/featured-categories'].includes(path));
+  const isThreadView = method === 'POST' && /^\/api\/forums\/[^/]+\/threads\/\d+\/view$/.test(path);
   if (!isMutation && !isPublicThreadRead) return;
 
   if (isMutation) {
@@ -79,7 +82,13 @@ export default defineEventHandler(async (event) => {
 
   const session = await getUserSession(event);
   const userId = Number(session.user?.id);
-  if (isMutation && path !== '/api/auth/logout' && Number.isInteger(userId) && userId > 0) {
+  if (
+    isMutation &&
+    !isThreadView &&
+    path !== '/api/auth/logout' &&
+    Number.isInteger(userId) &&
+    userId > 0
+  ) {
     const db = useDrizzle(event.context.cloudflare.env.DB);
     if (path !== '/api/account/email') {
       const account = await db.query.users.findFirst({ where: eq(users.id, userId) });
@@ -106,7 +115,7 @@ export default defineEventHandler(async (event) => {
   let rateLimitKey: string;
   if (Number.isInteger(userId) && userId > 0) {
     rateLimitKey = `user:${userId}`;
-  } else if (isPublicThreadRead) {
+  } else if (isPublicThreadRead || isThreadView) {
     const clientIp = getRequestHeader(event, 'cf-connecting-ip');
     if (!clientIp) return;
     rateLimitKey = `anonymous:${clientIp}`;
@@ -114,7 +123,7 @@ export default defineEventHandler(async (event) => {
     return;
   }
 
-  const bindingName = limiterFor(method, path);
+  const bindingName = isThreadView ? 'READ_LIMITER' : limiterFor(method, path);
   const environment = event.context.cloudflare?.env as Record<string, unknown> | undefined;
   const limiter = environment?.[bindingName] as RateLimitBinding | undefined;
   if (!limiter) {

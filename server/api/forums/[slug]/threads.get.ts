@@ -79,6 +79,7 @@ export default defineEventHandler(async (event) => {
       authorAvatarUrl: users.avatarUrl,
       createdAt: threads.createdAt,
       lastPostAt: threads.lastPostAt,
+      viewCount: threads.viewCount,
       isPinned: threads.isPinned,
       isLocked: threads.isLocked,
       isBookmarked: sql<boolean>`exists (

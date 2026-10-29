@@ -1,4 +1,4 @@
-import { and, asc, eq, isNull } from 'drizzle-orm';
+import { and, asc, eq, isNotNull, isNull } from 'drizzle-orm';
 import { categories, forumAdmins, forums, posts, threads } from '~~/server/db/schema';
 import useDrizzle from '~~/server/utils/useDrizzle';
 import isGlobalAdmin from '~~/server/utils/isGlobalAdmin';
@@ -121,16 +121,26 @@ export default defineEventHandler(async (event) => {
     updates.format = format;
     updates.pollJson = JSON.stringify(format === 'poll' ? pollOptions || [] : []);
   }
+  const nextFormat = format ?? thread.format;
+  if (nextFormat !== 'question' && thread.acceptedPostId !== null) {
+    updates.acceptedPostId = null;
+  }
   if (acceptedPostId !== undefined) {
     if (acceptedPostId !== null) {
+      if (nextFormat !== 'question') {
+        throw createError({ statusCode: 400, statusMessage: 'Only questions can accept answers' });
+      }
       const acceptedPost = await db.query.posts.findFirst({
         where: and(
           eq(posts.id, acceptedPostId),
           eq(posts.threadId, threadId),
+          isNotNull(posts.parentPostId),
           eq(posts.isDeleted, false)
         ),
       });
-      if (!acceptedPost) throw createError({ statusCode: 400, statusMessage: 'Invalid answer' });
+      if (!acceptedPost || acceptedPost.parentPostId === null) {
+        throw createError({ statusCode: 400, statusMessage: 'Choose a reply as the answer' });
+      }
     }
     updates.acceptedPostId = acceptedPostId;
   }

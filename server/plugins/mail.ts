@@ -153,8 +153,9 @@ async function sendPending(env: MailEnv) {
         }
         if (user.mail_unsubscribe_token) {
           const url = `https://community.mori.space/mail/unsubscribe?token=${user.mail_unsubscribe_token}`;
+          const oneClickUrl = `https://community.mori.space/api/mail/unsubscribe?token=${user.mail_unsubscribe_token}`;
           content += `\n\n이메일 수신 거부: ${url}`;
-          headers['List-Unsubscribe'] = `<${url}>`;
+          headers['List-Unsubscribe'] = `<${oneClickUrl}>`;
           headers['List-Unsubscribe-Post'] = 'List-Unsubscribe=One-Click';
         }
       }

@@ -1,11 +1,13 @@
 type CleanupEnv = { DB: D1Database; BLOB: R2Bucket };
 
 async function cleanupUnusedAttachments(env: CleanupEnv) {
-  const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+  const now = Date.now();
+  const cutoff = now - 24 * 60 * 60 * 1000;
+  const retryBefore = now - 6 * 60 * 60 * 1000;
   const rows = await env.DB.prepare(
-    'SELECT id, r2_key AS r2Key FROM attachments WHERE post_id IS NULL AND created_at < ? ORDER BY id LIMIT 100'
+    'SELECT id, r2_key AS r2Key FROM attachments WHERE post_id IS NULL AND created_at < ? AND (cleanup_attempted_at IS NULL OR cleanup_attempted_at < ?) ORDER BY COALESCE(cleanup_attempted_at, 0), created_at, id LIMIT 100'
   )
-    .bind(cutoff)
+    .bind(cutoff, retryBefore)
     .all<{ id: number; r2Key: string }>();
   for (const row of rows.results || []) {
     try {
@@ -15,24 +17,114 @@ async function cleanupUnusedAttachments(env: CleanupEnv) {
         .run();
     } catch (error) {
       console.warn('Unused attachment cleanup failed', { id: row.id, error });
+      await env.DB.prepare(
+        'UPDATE attachments SET cleanup_attempted_at = ? WHERE id = ? AND post_id IS NULL'
+      )
+        .bind(now, row.id)
+        .run()
+        .catch((markError) =>
+          console.warn('Unable to record unused attachment cleanup retry', {
+            id: row.id,
+            error: markError,
+          })
+        );
     }
   }
 }
 
 async function cleanupStaleAvatars(env: CleanupEnv) {
-  const listed = await env.BLOB.list({ prefix: 'avatars/', limit: 100 });
-  for (const object of listed.objects || []) {
-    const current = await env.DB.prepare(
-      'SELECT 1 FROM users WHERE uploaded_avatar_key = ? LIMIT 1'
+  let cursor: string | undefined;
+  do {
+    const listed = await env.BLOB.list({
+      prefix: 'avatars/',
+      limit: 100,
+      ...(cursor ? { cursor } : {}),
+    });
+    const objects = listed.objects || [];
+    const keys = objects.map((object) => object.key);
+    if (keys.length) {
+      const referenced = await env.DB.prepare(
+        `SELECT uploaded_avatar_key AS key FROM users WHERE uploaded_avatar_key IN (${keys.map(() => '?').join(',')})`
+      )
+        .bind(...keys)
+        .all<{ key: string }>();
+      const currentKeys = new Set((referenced.results || []).map((row) => row.key));
+      const stale = objects.filter((object) => object.uploaded && !currentKeys.has(object.key));
+      const results = await Promise.allSettled(stale.map((object) => env.BLOB.delete(object.key)));
+      results.forEach((result, index) => {
+        if (result.status === 'rejected') {
+          console.warn('Stale avatar cleanup failed', {
+            key: stale[index]?.key,
+            error: result.reason,
+          });
+        }
+      });
+    }
+    cursor = listed.truncated ? listed.cursor : undefined;
+  } while (cursor);
+}
+
+async function cleanupDeletedPostAttachments(env: CleanupEnv) {
+  const now = Date.now();
+  const cutoff = now - 30 * 24 * 60 * 60 * 1000;
+  const retryBefore = now - 6 * 60 * 60 * 1000;
+  const rows = await env.DB.prepare(
+    'SELECT a.id, a.r2_key AS r2Key FROM attachments a INNER JOIN posts p ON p.id = a.post_id WHERE p.is_deleted = 1 AND p.updated_at < ? AND (a.cleanup_attempted_at IS NULL OR a.cleanup_attempted_at < ?) ORDER BY COALESCE(a.cleanup_attempted_at, 0), p.updated_at, a.id LIMIT 100'
+  )
+    .bind(cutoff, retryBefore)
+    .all<{ id: number; r2Key: string }>();
+  const candidates = rows.results || [];
+  const results = await Promise.allSettled(
+    candidates.map((attachment) => env.BLOB.delete(attachment.r2Key))
+  );
+  const deletedIds: number[] = [];
+  const retryIds: number[] = [];
+  results.forEach((result, index) => {
+    const attachment = candidates[index];
+    if (!attachment) return;
+    if (result.status === 'fulfilled') deletedIds.push(attachment.id);
+    else {
+      retryIds.push(attachment.id);
+      console.warn('Deleted-post attachment cleanup failed', {
+        id: attachment.id,
+        error: result.reason,
+      });
+    }
+  });
+  if (retryIds.length) {
+    await env.DB.prepare(
+      `UPDATE attachments SET cleanup_attempted_at = ? WHERE id IN (${retryIds.map(() => '?').join(',')})`
     )
-      .bind(object.key)
-      .first();
-    if (!current && object.uploaded) {
-      try {
-        await env.BLOB.delete(object.key);
-      } catch (error) {
-        console.warn('Stale avatar cleanup failed', { key: object.key, error });
-      }
+      .bind(now, ...retryIds)
+      .run()
+      .catch((error) =>
+        console.warn('Unable to record deleted-post attachment cleanup retries', { error })
+      );
+  }
+  if (deletedIds.length) {
+    try {
+      await env.DB.prepare(
+        `DELETE FROM attachments WHERE id IN (${deletedIds.map(() => '?').join(',')}) AND post_id IS NOT NULL AND EXISTS (SELECT 1 FROM posts p WHERE p.id = attachments.post_id AND p.is_deleted = 1 AND p.updated_at < ?)`
+      )
+        .bind(...deletedIds, cutoff)
+        .run();
+    } catch (error) {
+      console.warn('Deleted-post attachment metadata cleanup failed', { error });
+      const results = await Promise.allSettled(
+        deletedIds.map((id) =>
+          env.DB.prepare('UPDATE attachments SET cleanup_attempted_at = ? WHERE id = ?')
+            .bind(now, id)
+            .run()
+        )
+      );
+      results.forEach((result, index) => {
+        if (result.status === 'rejected') {
+          console.warn('Unable to record deleted-post attachment cleanup retry', {
+            id: deletedIds[index],
+            error: result.reason,
+          });
+        }
+      });
     }
   }
 }
@@ -43,5 +135,6 @@ export default defineNitroPlugin((nitroApp) => {
     const cleanupEnv = env as CleanupEnv;
     await cleanupUnusedAttachments(cleanupEnv);
     await cleanupStaleAvatars(cleanupEnv);
+    await cleanupDeletedPostAttachments(cleanupEnv);
   });
 });

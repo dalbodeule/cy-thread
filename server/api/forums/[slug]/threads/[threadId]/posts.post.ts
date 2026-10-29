@@ -61,7 +61,8 @@ export default defineEventHandler(async (event) => {
   if (findModerationKeyword(markdown, appearance.moderationKeywords)) {
     throw createError({
       statusCode: 422,
-      statusMessage: '운영진 검토가 필요한 표현이 포함되어 있어 댓글을 등록할 수 없습니다.',
+      statusMessage:
+        '커뮤니티 검토 규칙에 걸려 댓글을 등록할 수 없습니다. 내용을 수정한 뒤 다시 시도해 주세요.',
     });
   }
   const viewer = await requireForumCommentAccess(event, forum, commentAccess);

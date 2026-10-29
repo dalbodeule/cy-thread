@@ -5,6 +5,9 @@ compatibility_flags = [ "nodejs_compat" ]
 compatibility_date = "2026-09-08"
 assets = { directory = "./.output/public/", binding = "ASSETS" }
 
+[cache]
+enabled = true
+
 [triggers]
 crons = ["0 * * * *", "* * * * *"]
 
@@ -15,7 +18,7 @@ MAIL_FROM_ADDRESS = "webmaster@mori.space"
 name = "EMAIL"
 
 [observability]
-enabled = false
+enabled = true
 head_sampling_rate = 1
 redact_query_string = false
 

@@ -20,4 +20,5 @@ export const attachments = sqliteTable('attachments', {
     .notNull()
     .default(sql`(unixepoch() * 1000)`),
   deletedAt: integer('deleted_at', { mode: 'timestamp_ms' }),
+  cleanupAttemptedAt: integer('cleanup_attempted_at', { mode: 'timestamp_ms' }),
 });

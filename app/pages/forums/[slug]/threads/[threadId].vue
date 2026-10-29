@@ -11,6 +11,7 @@ type Detail = {
   pollCounts: number[];
   myPollOption: number | null;
   acceptedPostId: number | null;
+  viewCount: number;
   lastReadPostId: number | null;
   subscribed: boolean;
   hasMoreReplies: boolean;
@@ -103,6 +104,30 @@ const threadId = computed(() => Number(route.params.threadId));
 const forumPath = computed(() => `/forums/${encodeURIComponent(slug.value)}`);
 const api = (path = '') =>
   `/api/forums/${encodeURIComponent(slug.value)}/threads/${threadId.value}${path}`;
+async function saveReadPosition() {
+  if (!loggedIn.value || !detail.value?.replies.length) return;
+  const last = detail.value.replies[detail.value.replies.length - 1];
+  await $fetch(api('/read'), { method: 'POST', body: { postId: last?.id } }).catch(() => undefined);
+}
+async function recordView() {
+  const key = `mori-thread-view:${slug.value}:${threadId.value}`;
+  try {
+    if (sessionStorage.getItem(key)) return;
+    sessionStorage.setItem(key, '1');
+  } catch {
+    // Continue without deduplication when session storage is unavailable.
+  }
+  try {
+    const result = await $fetch<{ viewCount: number }>(api('/view'), { method: 'POST' });
+    if (detail.value?.id === threadId.value) detail.value.viewCount = result.viewCount;
+  } catch {
+    try {
+      sessionStorage.removeItem(key);
+    } catch {
+      // Ignore unavailable session storage.
+    }
+  }
+}
 const seoTitle = computed(() =>
   detail.value ? `${detail.value.title} | mori.space` : '게시글 | mori.space'
 );
@@ -138,6 +163,7 @@ async function load() {
       ),
     ]);
     detail.value = loaded;
+    await recordView();
     bookmarked.value = Boolean(loaded.isBookmarked);
     reacted.value = Boolean(loaded.reacted);
     reactionCount.value = Number(loaded.reactionCount || 0);
@@ -146,10 +172,26 @@ async function load() {
     subscribed.value = Boolean(loaded.subscribed);
     categories.value = loadedCategories;
     error.value = '';
-    if (route.hash) {
-      await nextTick();
-      document.querySelector(route.hash)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const targetPostId = /^#post-(\d+)$/.exec(route.hash)?.[1];
+    while (
+      targetPostId &&
+      detail.value.hasMoreReplies &&
+      !detail.value.replies.some((post) => String(post.id) === targetPostId)
+    ) {
+      try {
+        await appendMoreReplies();
+      } catch {
+        error.value = '댓글 바로가기를 불러오지 못했어요.';
+        break;
+      }
     }
+    if (targetPostId) {
+      await nextTick();
+      document
+        .getElementById(`post-${targetPostId}`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    await saveReadPosition();
   } catch {
     error.value = '게시글을 찾을 수 없거나 불러오지 못했어요.';
   }
@@ -291,15 +333,20 @@ async function toggleSubscription() {
     error.value = '글 구독 상태를 변경하지 못했어요.';
   }
 }
+async function appendMoreReplies() {
+  if (!detail.value || !detail.value.hasMoreReplies) return;
+  const loaded = await $fetch<Detail>(api(), {
+    params: { limit: 100, offset: detail.value.replies.length },
+  });
+  detail.value.replies.push(...loaded.replies);
+  detail.value.hasMoreReplies = loaded.hasMoreReplies;
+}
 async function loadMoreReplies() {
   if (!detail.value || loadingMoreReplies.value || !detail.value.hasMoreReplies) return;
   loadingMoreReplies.value = true;
   try {
-    const loaded = await $fetch<Detail>(api(), {
-      params: { limit: 100, offset: detail.value.replies.length },
-    });
-    detail.value.replies.push(...loaded.replies);
-    detail.value.hasMoreReplies = loaded.hasMoreReplies;
+    await appendMoreReplies();
+    await saveReadPosition();
   } catch {
     error.value = '댓글을 더 불러오지 못했어요.';
   } finally {
@@ -400,11 +447,7 @@ async function removeThread() {
   }
 }
 onMounted(load);
-onMounted(async () => {
-  if (!loggedIn.value || !detail.value?.replies.length) return;
-  const last = detail.value.replies[detail.value.replies.length - 1];
-  await $fetch(api('/read'), { method: 'POST', body: { postId: last?.id } }).catch(() => undefined);
-});
+watch([slug, threadId], () => void load());
 onMounted(() => {
   try {
     draft.value = localStorage.getItem(draftKey.value) || '';
@@ -435,7 +478,8 @@ watch(draft, (value) => {
           ><span v-if="detail.format === 'poll'" class="page-pinned">투표</span
           ><span v-if="detail.format === 'announcement'" class="page-pinned">공지</span
           ><span v-if="detail.isPinned" class="page-pinned">고정</span
-          ><time>{{ new Date(detail.createdAt).toLocaleString('ko-KR') }}</time>
+          ><time>{{ new Date(detail.createdAt).toLocaleString('ko-KR') }}</time
+          ><span aria-label="조회수">조회 {{ detail.viewCount.toLocaleString('ko-KR') }}</span>
         </div>
         <div class="detail-title-row">
           <h1>{{ detail.title }}</h1>
@@ -506,7 +550,7 @@ watch(draft, (value) => {
             <span>{{ option }}</span
             ><strong>{{ pollCounts[index] || 0 }}</strong>
           </button>
-          <small>로그인 후 한 번 투표할 수 있어요.</small>
+          <small>로그인 후 한 항목에 투표할 수 있으며, 선택은 다시 바꿀 수 있어요.</small>
         </section>
         <div
           v-for="post in detail.replies"

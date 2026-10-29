@@ -19,6 +19,7 @@ export const threads = sqliteTable(
     format: text('format').notNull().default('discussion'),
     pollJson: text('poll_json').notNull().default('[]'),
     acceptedPostId: integer('accepted_post_id'),
+    viewCount: integer('view_count').notNull().default(0),
     authorUserId: integer('author_user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'restrict' }),

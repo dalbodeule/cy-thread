@@ -35,7 +35,7 @@ async function load(offset = 0) {
       error.value = '';
     }
   } catch {
-    if (current === requestId) error.value = 'Threads 목록을 불러오지 못했어요.';
+    if (current === requestId) error.value = '카테고리 목록을 불러오지 못했어요.';
   } finally {
     if (current === requestId) loading.value = false;
   }
@@ -63,7 +63,7 @@ onBeforeUnmount(() => clearTimeout(timer));
         </div>
       </section>
       <div class="explore-controls">
-        <label>이름 검색<input v-model="query" placeholder="Threads 이름 또는 주소" /></label
+        <label>이름 검색<input v-model="query" placeholder="카테고리 이름 또는 주소" /></label
         ><label
           >Forum<select v-model="forum">
             <option value="">전체 Forum</option>
@@ -86,7 +86,7 @@ onBeforeUnmount(() => clearTimeout(timer));
           ><span>게시글 {{ item.threadCount }}개</span></NuxtLink
         >
       </div>
-      <p v-else class="page-empty">조건에 맞는 Threads가 없습니다.</p>
+      <p v-else class="page-empty">조건에 맞는 카테고리가 없습니다.</p>
       <button v-if="hasMore && !loading" class="load-more" @click="load(categories.length)">
         더 보기 ↓
       </button>

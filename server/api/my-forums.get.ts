@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { forumAdmins, forumFollowers, forums } from '~~/server/db/schema';
 import useDrizzle from '~~/server/utils/useDrizzle';
 
@@ -19,7 +19,7 @@ export default defineEventHandler(async (event) => {
       .select({ id: forums.id, slug: forums.slug, name: forums.name })
       .from(forumAdmins)
       .innerJoin(forums, eq(forumAdmins.forumId, forums.id))
-      .where(eq(forumAdmins.userId, userId)),
+      .where(and(eq(forumAdmins.userId, userId), inArray(forumAdmins.role, ['owner', 'admin']))),
     db
       .select({ id: forums.id, slug: forums.slug, name: forums.name })
       .from(forumFollowers)

@@ -15,6 +15,7 @@ type ThreadRow = {
   authorAvatarUrl: string | null;
   createdAt: string | null;
   lastPostAt: string | null;
+  viewCount: number;
   isPinned: boolean;
   isLocked: boolean;
   replyCount: number;
@@ -64,10 +65,12 @@ const [statsFetch, followFetch, threadsFetch, categoriesFetch] = await Promise.a
     { key: `forum-categories-${String(route.params.slug)}` }
   ),
 ]);
-const { data: membershipState, refresh: refreshMembership } = await useFetch<{ status: string }>(
-  () => `/api/forums/${encodeURIComponent(String(route.params.slug))}/membership`,
-  { key: `forum-membership-${String(route.params.slug)}` }
-);
+const { data: membershipState, refresh: refreshMembership } = await useFetch<{
+  status: string;
+  canRead: boolean;
+}>(() => `/api/forums/${encodeURIComponent(String(route.params.slug))}/membership`, {
+  key: `forum-membership-${String(route.params.slug)}`,
+});
 const { data: forumStats, refresh: refreshForumStats } = statsFetch;
 const { data: followState } = followFetch;
 const { data: initialRows } = threadsFetch;
@@ -157,7 +160,7 @@ const joinNotice = ref('');
 const joinTurnstileToken = ref('');
 const joinTurnstileKey = ref(0);
 const isPrivateBlocked = computed(
-  () => seoForum.value?.visibility === 'private' && membershipState.value?.status !== 'approved'
+  () => seoForum.value?.visibility === 'private' && membershipState.value?.canRead !== true
 );
 const draftKey = computed(() => `mori-draft:thread:${slug.value}`);
 let draftTimer: ReturnType<typeof setTimeout> | undefined;
@@ -404,7 +407,7 @@ function time(value: string | null) {
         <p v-if="followError" class="page-alert" role="alert">{{ followError }}</p>
       </section>
       <section
-        v-if="seoForum?.resourceLinks?.length"
+        v-if="!isPrivateBlocked && seoForum?.resourceLinks?.length"
         class="forum-resources"
         aria-labelledby="forum-resources-title"
       >
@@ -603,7 +606,8 @@ function time(value: string | null) {
                 ><span v-if="row.format === 'announcement'" class="page-pinned">공지</span
                 ><span v-if="row.isPinned" class="page-pinned">고정</span
                 ><span v-if="row.isLocked" class="page-pinned">댓글 잠금</span
-                ><time>{{ time(row.lastPostAt || row.createdAt) }}</time>
+                ><time>{{ time(row.lastPostAt || row.createdAt) }}</time
+                ><span>{{ row.viewCount.toLocaleString('ko-KR') }}회 조회</span>
               </div>
               <NuxtLink class="page-thread-title" :to="`${forumPath}/threads/${row.id}`">{{
                 row.title

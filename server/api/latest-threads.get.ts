@@ -10,7 +10,7 @@ export default defineEventHandler(async (event) => {
   const result = await db
     .prepare(
       `
-    SELECT t.id, t.title, t.last_post_at AS lastPostAt,
+    SELECT t.id, t.title, t.last_post_at AS lastPostAt, t.view_count AS viewCount,
            f.slug AS forumSlug, f.name AS forumName,
            c.name AS categoryName,
            u.name AS authorName,
@@ -28,6 +28,7 @@ export default defineEventHandler(async (event) => {
       id: number;
       title: string;
       lastPostAt: number;
+      viewCount: number;
       forumSlug: string;
       forumName: string;
       categoryName: string;

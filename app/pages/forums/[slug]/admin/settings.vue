@@ -126,7 +126,7 @@ onMounted(load);
         >
         <label
           >댓글 작성 권한<select v-model="form.commentAccess">
-            <option value="guest">비회원 포함 (IP 기록)</option>
+            <option value="guest">비회원 포함 (확인 가능한 IP 저장)</option>
             <option value="members">로그인 회원만</option>
             <option value="forum_members">Forum 가입 회원만</option>
           </select></label
@@ -203,7 +203,8 @@ onMounted(load);
                 .filter(Boolean)
             "
           /><small class="settings-help"
-            >일치하는 글과 댓글은 자동 삭제하지 않고 운영진 검토 대상으로 차단합니다.</small
+            >키워드가 포함된 글과 댓글은 저장하지 않습니다. 내용을 수정한 뒤 다시 제출해 주세요.
+            별도 운영진 검토 대기열에는 등록되지 않습니다.</small
           ></label
         >
         <label
@@ -219,7 +220,8 @@ onMounted(load);
                 .map(([title, url]) => ({ title: title || '', url: url || '' }))
             "
           /><small class="settings-help"
-            >운영진이 지정한 FAQ·가이드 링크를 공개 Forum에 표시합니다.</small
+            >공개 Forum에는 모두 표시하고, 비공개 Forum에서는 가입 승인 멤버·소유자·운영진에게
+            표시합니다.</small
           ></label
         >
         <label>사각 아이콘 글자<input v-model="form.iconText" required maxlength="2" /></label>

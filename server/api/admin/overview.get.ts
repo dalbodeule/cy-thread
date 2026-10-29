@@ -65,6 +65,7 @@ export default defineEventHandler(async (event) => {
         SELECT p.author_user_id AS user_id FROM posts p
           JOIN threads t ON t.id = p.thread_id
           WHERE p.is_deleted = 0 AND t.is_deleted = 0 AND p.created_at >= ${since}
+            AND p.author_user_id IS NOT NULL
       )
     `),
   ]);

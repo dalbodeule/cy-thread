@@ -1,5 +1,12 @@
 import { sql } from 'drizzle-orm';
-import { index, integer, primaryKey, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import {
+  index,
+  integer,
+  primaryKey,
+  sqliteTable,
+  text,
+  uniqueIndex,
+} from 'drizzle-orm/sqlite-core';
 import { posts } from './posts';
 import { threads } from './threads';
 import { users } from './users';
@@ -24,5 +31,11 @@ export const reactions = sqliteTable(
     }),
     threadLookup: index('reactions_thread_idx').on(table.threadId, table.kind),
     postLookup: index('reactions_post_idx').on(table.postId, table.kind),
+    threadUserKindUnique: uniqueIndex('reactions_thread_user_kind_unique_idx')
+      .on(table.userId, table.threadId, table.kind)
+      .where(sql`${table.threadId} IS NOT NULL AND ${table.postId} IS NULL`),
+    postUserKindUnique: uniqueIndex('reactions_post_user_kind_unique_idx')
+      .on(table.userId, table.postId, table.kind)
+      .where(sql`${table.postId} IS NOT NULL AND ${table.threadId} IS NULL`),
   })
 );

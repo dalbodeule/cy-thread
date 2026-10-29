@@ -14,6 +14,18 @@ export default async function linkInlineAttachments(
         .filter((id) => Number.isInteger(id) && id > 0)
     ),
   ];
+  const linked = await db
+    .select({ id: attachments.id })
+    .from(attachments)
+    .where(eq(attachments.postId, postId));
+  const referenced = new Set(ids);
+  const removedIds = linked.map(({ id }) => Number(id)).filter((id) => !referenced.has(id));
+  if (removedIds.length) {
+    await db
+      .update(attachments)
+      .set({ postId: null, createdAt: new Date() })
+      .where(and(eq(attachments.postId, postId), inArray(attachments.id, removedIds)));
+  }
   if (!ids.length) return;
 
   await db

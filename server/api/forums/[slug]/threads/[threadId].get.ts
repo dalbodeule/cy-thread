@@ -38,6 +38,7 @@ export default defineEventHandler(async (event) => {
       format: threads.format,
       pollJson: threads.pollJson,
       acceptedPostId: threads.acceptedPostId,
+      viewCount: threads.viewCount,
       isLocked: threads.isLocked,
       isPinned: threads.isPinned,
       category: categories.name,
@@ -99,9 +100,11 @@ export default defineEventHandler(async (event) => {
     .from(posts)
     .leftJoin(users, eq(posts.authorUserId, users.id))
     .where(eq(posts.threadId, threadId))
-    .orderBy(asc(posts.createdAt), asc(posts.id));
-  const hasMoreReplies = replies.length > replyOffset + replyLimit;
-  const visibleReplies = replies.slice(replyOffset, replyOffset + replyLimit);
+    .orderBy(asc(posts.createdAt), asc(posts.id))
+    .limit(replyLimit + 1)
+    .offset(replyOffset);
+  const hasMoreReplies = replies.length > replyLimit;
+  const visibleReplies = replies.slice(0, replyLimit);
 
   const session = await getUserSession(event);
   const viewerId = Number(session.user?.id);
